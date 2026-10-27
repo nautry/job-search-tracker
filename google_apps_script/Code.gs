@@ -76,6 +76,11 @@ function syncJobs() {
       const start = sh.getLastRow()+1;
       sh.getRange(start,1,newJobs.length,20).setValues(newJobs.map(j=>['Not Applied','','','',...autoFields(j)]));
     }
+    const feedIds = new Set(feed.jobs.map(j=>j.id));
+    const sourceStates = new Map(feed.source_status.map(s=>[s.source,s.status]));
+    rows.forEach((r,i)=>{
+      if(r[15] && !feedIds.has(String(r[15]))) sh.getRange(i+2,17).setValue(sourceStates.get(String(r[19]))==='ok' ? 'Not seen in latest complete search' : 'Source incomplete / unavailable; retained');
+    });
     sh.getRange(2,1,last-1,1).setDataValidation(SpreadsheetApp.newDataValidation().requireValueInList(STATUSES,true).setAllowInvalid(false).build());
     sh.getRange(2,2,last-1,2).setNumberFormat('mm/dd/yy');
     sh.getRange(2,18,last-1,2).setNumberFormat('mm/dd/yy');
