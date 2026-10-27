@@ -150,5 +150,61 @@
     "max_details": 50,
     "careers_url": "https://boseallaboutme.wd503.myworkdayjobs.com/en-US/Bose_Careers",
     "context": "Consumer electronics enclosures, acoustics hardware and test near Boston."
+  },
+  {
+    "company": "Astranis",
+    "provider": "greenhouse",
+    "slug": "astranis",
+    "careers_url": "https://job-boards.greenhouse.io/astranis",
+    "context": "Satellite electronics packaging, enclosures and ground test equipment; early-career opportunities, competitive hiring."
+  },
+  {
+    "company": "Vast",
+    "provider": "greenhouse",
+    "slug": "vast",
+    "careers_url": "https://job-boards.greenhouse.io/vast",
+    "context": "Avionics mechanical design and integration; explicit new-grad roles near Long Beach."
+  },
+  {
+    "company": "SpaceX",
+    "provider": "greenhouse",
+    "slug": "spacex",
+    "careers_url": "https://job-boards.greenhouse.io/spacex",
+    "context": "Explicit new-graduate mechanical and manufacturing routes; competitive stretch. Review work hours and actual city, including non-metro sites."
+  },
+  {
+    "company": "Alarm.com",
+    "provider": "greenhouse",
+    "slug": "alarmcom",
+    "careers_url": "https://job-boards.greenhouse.io/alarmcom",
+    "context": "Connected devices, hardware troubleshooting and early-career quality/test in the DC region; distinguish software QA."
+  },
+  {
+    "company": "Axon",
+    "provider": "greenhouse",
+    "slug": "axon",
+    "careers_url": "https://job-boards.greenhouse.io/axon",
+    "context": "Product enclosures, rugged hardware and automation in Scottsdale and other metros; Engineer II may be a stretch."
+  },
+  {
+    "company": "Verkada",
+    "provider": "greenhouse",
+    "slug": "verkada",
+    "careers_url": "https://job-boards.greenhouse.io/verkada",
+    "context": "Connected product mechanical design in San Mateo; verify years and country, as many roles are senior or overseas."
+  },
+  {
+    "company": "Traeger",
+    "provider": "greenhouse",
+    "slug": "traegergrills",
+    "careers_url": "https://job-boards.greenhouse.io/traegergrills",
+    "context": "Consumer product development, hardware validation and manufacturing near Salt Lake City; small board watchlist."
+  },
+  {
+    "company": "Markforged",
+    "provider": "greenhouse",
+    "slug": "markforged",
+    "careers_url": "https://job-boards.greenhouse.io/markforged",
+    "context": "3D-printing hardware and manufacturing near Boston; small board watchlist."
   }
 ]

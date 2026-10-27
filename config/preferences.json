@@ -82,7 +82,10 @@
       "alexandria",
       "reston",
       "dulles",
-      "sterling, va"
+      "sterling, va",
+      "tysons",
+      "mclean",
+      "fairfax"
     ],
     "Denver": [
       "denver",
@@ -128,6 +131,13 @@
       "atlanta",
       "marietta",
       "alpharetta"
+    ],
+    "Salt Lake City": [
+      "salt lake city",
+      "salt lake",
+      "sandy, ut",
+      "draper",
+      "lehi"
     ]
   },
   "deprioritized_locations": [
@@ -212,7 +222,8 @@
     "tooling engineer",
     "reliability engineer",
     "design verification engineer",
-    "mechanisms? engineer"
+    "mechanisms? engineer",
+    "quality engineer"
   ],
   "max_required_years": 3,
   "excluded_companies": [],
@@ -220,6 +231,11 @@
   "required_location_keywords": [],
   "excluded_location_keywords": [],
   "shortlist_limit": 15,
-  "shortlist_per_company": 3,
-  "stale_after_hours": 36
+  "shortlist_per_company": 2,
+  "stale_after_hours": 36,
+  "ranking_weights": {
+    "fit": 0.85,
+    "location": 0.5,
+    "freshness": 0.8
+  }
 }

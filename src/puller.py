@@ -83,6 +83,8 @@ def assess(job, prefs):
         return None
     if NON_US.search(loc) and not re.search(r"united states|\busa\b", loc, re.I):
         return None
+    if re.search(r"quality engineer", title, re.I) and not (re.search(r"mechanical engineering", desc, re.I) and re.search(r"hardware|physical|manufactur|device", desc, re.I)):
+        return None
     years = experience(title + '\n' + desc)
     if years is not None and years > prefs.get("max_required_years", 3):
         return None
@@ -144,7 +146,9 @@ def assess(job, prefs):
             flags.append("Posting date unavailable; freshness not scored")
     else:
         flags.append("Posting date unavailable; first seen is not posting date")
-    return {k: v for k, v in {**job, "role_score": score, "priority": max(0, min(100, score + bonus + freshness)), "location_fit": geo, "experience": f"{years}+ years (parsed)" if years is not None else "Review posting", "salary": salary, "flags": "; ".join(flags), "evidence": "; ".join(evidence)}.items() if k != "description"}
+    weights = prefs.get("ranking_weights", {"fit": 0.85, "location": 0.5, "freshness": 0.8})
+    priority = round(score * weights["fit"] + bonus * weights["location"] + freshness * weights["freshness"], 1)
+    return {k: v for k, v in {**job, "role_score": score, "priority": max(0, min(100, priority)), "location_fit": geo, "experience": f"{years}+ years (parsed)" if years is not None else "Review posting", "salary": salary, "flags": "; ".join(flags), "evidence": "; ".join(evidence)}.items() if k != "description"}
 
 
 def canonical(board, raw_id, title, location, url, description, **extra):
