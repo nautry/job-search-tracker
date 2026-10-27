@@ -1,0 +1,46 @@
+name: Daily employer search
+on:
+  schedule:
+    - cron: '23 11 * * *'
+  push:
+    paths:
+      - 'config/**'
+      - 'src/**'
+      - 'tests/**'
+      - '.github/workflows/daily.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: employer-feed
+  cancel-in-progress: false
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Test collection and history-preservation logic
+        run: |
+          python -m unittest discover -s tests -v
+          node tests/test_sync.cjs
+      - name: Collect public employer listings
+        run: python -m src.puller
+      - name: Save feed
+        run: |
+          git config user.name 'job-feed-bot'
+          git config user.email 'job-feed-bot@users.noreply.github.com'
+          git add data/jobs.json data/jobs.csv
+          if ! git diff --cached --quiet; then
+            git commit -m 'Refresh public job feed'
+            git push
+          fi
+      - name: Report source failures
+        run: |
+          python -c "import json; d=json.load(open('data/jobs.json')); bad=[s for s in d['source_status'] if s['status']!='ok']; [print('::warning::'+s['company']+': '+s['status']+' '+s['error']) for s in bad]; print(str(len(d['jobs']))+' retained job records')"

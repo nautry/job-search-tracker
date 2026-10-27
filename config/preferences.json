@@ -1,0 +1,225 @@
+{
+  "graduation": "2027-05",
+  "salary_floor": null,
+  "minimum_role_score": 40,
+  "preferred_metros": {
+    "Austin": [
+      "austin",
+      "round rock",
+      "cedar park"
+    ],
+    "Dallas-Fort Worth": [
+      "dallas",
+      "fort worth",
+      "plano",
+      "mckinney",
+      "richardson"
+    ],
+    "Houston": [
+      "houston",
+      "clear lake"
+    ],
+    "Los Angeles / Orange County": [
+      "los angeles",
+      "el segundo",
+      "hawthorne",
+      "long beach",
+      "torrance",
+      "costa mesa",
+      "irvine",
+      "huntington beach",
+      "pasadena"
+    ],
+    "San Diego": [
+      "san diego",
+      "carlsbad",
+      "poway"
+    ],
+    "San Francisco Bay Area": [
+      "san francisco",
+      "san jose",
+      "sunnyvale",
+      "mountain view",
+      "palo alto",
+      "san mateo",
+      "redwood city",
+      "fremont",
+      "hayward",
+      "burlingame",
+      "san carlos",
+      "south san francisco",
+      "foster city",
+      "oakland",
+      "berkeley"
+    ],
+    "Seattle": [
+      "seattle",
+      "redmond",
+      "bellevue",
+      "everett",
+      "kent, wa"
+    ],
+    "Boston": [
+      "boston",
+      "somerville",
+      "cambridge",
+      "waltham",
+      "andover",
+      "marlborough",
+      "wilmington, ma",
+      "tewksbury"
+    ],
+    "New York City": [
+      "new york",
+      "brooklyn",
+      "queens",
+      "jersey city"
+    ],
+    "Washington DC": [
+      "washington, dc",
+      "washington d.c.",
+      "arlington, va",
+      "alexandria",
+      "reston",
+      "dulles",
+      "sterling, va"
+    ],
+    "Denver": [
+      "denver",
+      "boulder",
+      "broomfield",
+      "centennial",
+      "littleton",
+      "aurora, co"
+    ],
+    "Phoenix": [
+      "phoenix",
+      "tempe",
+      "mesa, az",
+      "chandler",
+      "scottsdale"
+    ],
+    "Tucson": [
+      "tucson"
+    ],
+    "Orlando": [
+      "orlando"
+    ],
+    "Tampa": [
+      "tampa",
+      "st. petersburg",
+      "clearwater"
+    ],
+    "Miami": [
+      "miami",
+      "fort lauderdale"
+    ],
+    "Portland": [
+      "portland",
+      "hillsboro",
+      "beaverton"
+    ],
+    "Raleigh-Durham": [
+      "raleigh",
+      "durham",
+      "cary, nc"
+    ],
+    "Atlanta": [
+      "atlanta",
+      "marietta",
+      "alpharetta"
+    ]
+  },
+  "deprioritized_locations": [
+    "ohio",
+    "indiana",
+    "illinois",
+    "michigan",
+    "wisconsin",
+    "minnesota",
+    "iowa",
+    "missouri",
+    "kansas",
+    "nebraska",
+    "north dakota",
+    "south dakota",
+    "west virginia",
+    "pittsburgh",
+    "johnstown",
+    "asheville",
+    "knoxville",
+    "chattanooga",
+    "huntsville",
+    "weirton",
+    "berea",
+    "cedar rapids",
+    "rockford",
+    "grand rapids"
+  ],
+  "skills": {
+    "CAD": [
+      "creo",
+      "solidworks",
+      "solid works",
+      "fusion 360",
+      "fusion360",
+      "inventor",
+      "siemens nx",
+      "3d cad",
+      "parametric",
+      "cad"
+    ],
+    "Prototyping / manufacturing": [
+      "additive manufacturing",
+      "3d print",
+      "machining",
+      "cnc",
+      "prototype",
+      "prototyping",
+      "manufacturability",
+      "dfm"
+    ],
+    "Mechanical analysis": [
+      "matlab",
+      "fea",
+      "finite element",
+      "stress analysis",
+      "fatigue",
+      "gearbox",
+      "mechanism"
+    ],
+    "Instrumentation / integration": [
+      "python",
+      "c++",
+      "microcontroller",
+      "sensor",
+      "data acquisition",
+      "test fixture",
+      "solder",
+      "electromechanical",
+      "mechatronic"
+    ]
+  },
+  "role_patterns": [
+    "mechanical",
+    "mechatronic",
+    "electro.?mechanical",
+    "manufacturing engineer",
+    "test engineer",
+    "hardware (design|test|integration)",
+    "product (design|development) engineer",
+    "equipment engineer",
+    "tooling engineer",
+    "reliability engineer",
+    "design verification engineer",
+    "mechanisms? engineer"
+  ],
+  "max_required_years": 3,
+  "excluded_companies": [],
+  "excluded_keywords": [],
+  "required_location_keywords": [],
+  "excluded_location_keywords": [],
+  "shortlist_limit": 25,
+  "shortlist_per_company": 5,
+  "stale_after_hours": 36
+}

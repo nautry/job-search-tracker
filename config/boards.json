@@ -1,0 +1,8 @@
+[
+  {"company":"RTX","provider":"workday","slug":"rtx","host":"globalhr.wd5.myworkdayjobs.com","tenant":"globalhr","site":"REC_RTX_Ext_Gateway","search_terms":["mechanical","manufacturing engineer","test engineer"],"max_pages":8,"max_details":100,"careers_url":"https://careers.rtx.com/global/en","context":"Required employer. Raytheon, Collins Aerospace and Pratt & Whitney; mechanical hardware design, test and manufacturing. Search is scoped, not the whole company."},
+  {"company":"Anduril","provider":"greenhouse","slug":"andurilindustries","careers_url":"https://job-boards.greenhouse.io/andurilindustries","context":"Mechanical hardware, integration, test and manufacturing; screen experience and clearance requirements."},
+  {"company":"Saronic","provider":"ashby","slug":"saronic","careers_url":"https://jobs.ashbyhq.com/saronic","context":"Maritime hardware and electromechanical integration; Austin opportunities."},
+  {"company":"Skydio","provider":"ashby","slug":"skydio","careers_url":"https://jobs.ashbyhq.com/skydio","context":"Drones and docks; mechanical design, hardware testing and manufacturing."},
+  {"company":"Formlabs","provider":"greenhouse","slug":"formlabs","careers_url":"https://job-boards.greenhouse.io/formlabs","context":"3D printers, mechanical product development and manufacturing; Boston area."},
+  {"company":"Rocket Lab","provider":"greenhouse","slug":"rocketlab","careers_url":"https://job-boards.greenhouse.io/rocketlab","context":"Space hardware, test fixtures, structures and manufacturing; Southern California opportunities."}
+]
