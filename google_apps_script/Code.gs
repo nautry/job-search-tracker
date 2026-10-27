@@ -66,7 +66,12 @@ function syncJobs() {
     const last = Math.max(2, sh.getLastRow()+newJobs.length);
     if (last > sh.getMaxRows()) sh.insertRowsAfter(sh.getMaxRows(),last-sh.getMaxRows());
     // Existing A:D are never written. Sorting the whole table is safe: match by ID.
-    feed.jobs.forEach(j=>{if(index.has(j.id)) sh.getRange(index.get(j.id),5,1,16).setValues([autoFields(j)]);});
+    feed.jobs.forEach(j=>{if(index.has(j.id)) {
+      const fields=autoFields(j);
+      const firstSeen=rows[index.get(j.id)-2][17];
+      if(firstSeen) fields[13]=firstSeen;
+      sh.getRange(index.get(j.id),5,1,16).setValues([fields]);
+    }});
     if (newJobs.length) {
       const start = sh.getLastRow()+1;
       sh.getRange(start,1,newJobs.length,20).setValues(newJobs.map(j=>['Not Applied','','','',...autoFields(j)]));

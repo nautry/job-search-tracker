@@ -26,7 +26,10 @@ ctx.UrlFetchApp={fetch:()=>({getResponseCode:()=>200,getContentText:()=>JSON.str
 ctx.syncJobs();
 assert.equal(sheets.Jobs.rows.length,2);
 sheets.Jobs.rows[1][0]='Applied';sheets.Jobs.rows[1][1]='10/25/26';sheets.Jobs.rows[1][3]='Private note';
+const originalFirst=sheets.Jobs.rows[1][17];
+feed.jobs[0].first_seen=new Date(Date.now()+1000).toISOString();
 feed.jobs[0].title='Updated Engineer';ctx.syncJobs();
+assert.equal(sheets.Jobs.rows[1][17],originalFirst);
 assert.equal(sheets.Jobs.rows.length,2);
 assert.equal(sheets.Jobs.rows[1][0],'Applied');
 assert.equal(sheets.Jobs.rows[1][1],'10/25/26');
