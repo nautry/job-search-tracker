@@ -2,6 +2,7 @@
 /* Bound to your tracker: Extensions > Apps Script. No credentials in source. */
 const HEADERS = ['Status','Applied date','Follow-up','Notes','Company','Job title','Location','Role fit','Location fit','Priority','Experience','Salary','Flags','Why match','Link','Job ID','Availability','First seen','Last seen','Source'];
 const STATUSES = ['Not Applied','Applied','Interviewing','Offer','Rejected','Not Interested','Withdrawn'];
+const SOURCE_HEADERS = ['Company','Status','Collected','Matched','Checked at','Scope','Error','Careers URL','Context'];
 
 function onOpen() {
   SpreadsheetApp.getUi().createMenu('Job search').addItem('Refresh jobs','syncJobs').addItem('Refresh shortlist','refreshViews').addItem('Set up daily refresh','installDailyTrigger').addToUi();
@@ -84,11 +85,8 @@ function syncJobs() {
     sh.getRange(2,1,last-1,1).setDataValidation(SpreadsheetApp.newDataValidation().requireValueInList(STATUSES,true).setAllowInvalid(false).build());
     sh.getRange(2,2,last-1,2).setNumberFormat('mm/dd/yy');
     sh.getRange(2,18,last-1,2).setNumberFormat('mm/dd/yy');
-    const sources = ss.getSheetByName('Sources');
     const values = feed.source_status.map(s=>[s.company,s.status,s.collected,s.matched,new Date(s.checked_at),s.scope,s.error || '',s.careers_url,s.context]);
-    if (sources.getLastRow()>1) sources.getRange(2,1,sources.getLastRow()-1,9).clearContent();
-    if (values.length) sources.getRange(2,1,values.length,9).setValues(values.map(r=>r.map(textCell)));
-    if (values.length) sources.getRange(2,5,values.length,1).setNumberFormat('yyyy-mm-dd hh:mm');
+    writeSourceStatus(ss, values);
     cfg.getRange('B3').setValue(new Date(feed.generated_at));
     cfg.getRange('B4').setValue(new Date());
     cfg.getRange('B5').setValue('Sync succeeded; '+feed.jobs.length+' feed jobs; '+feed.source_status.filter(s=>s.status!=='ok').length+' sources need review');
@@ -99,6 +97,40 @@ function syncJobs() {
     SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Settings').getRange('B5').setValue('Sync failed: '+e.message);
     throw e;
   } finally { lock.releaseLock(); }
+}
+
+function writeSourceStatus(ss, values) {
+  let sources = ss.getSheetByName('Sources');
+  const writeRows = sheet => {
+    if (sheet.getLastRow()>1) sheet.getRange(2,1,sheet.getLastRow()-1,9).clearContent();
+    if (values.length) sheet.getRange(2,1,values.length,9).setValues(values.map(r=>r.map(textCell)));
+    if (values.length) sheet.getRange(2,5,values.length,1).setNumberFormat('yyyy-mm-dd hh:mm');
+  };
+  if (!sources) {
+    sources = ss.insertSheet('Sources');
+    sources.getRange(1,1,1,SOURCE_HEADERS.length).setValues([SOURCE_HEADERS]);
+    sources.setFrozenRows(1);
+    writeRows(sources);
+    return;
+  }
+  try {
+    writeRows(sources);
+  } catch (e) {
+    // Google Sheets Tables with typed columns reject Apps Script cell clears.
+    // Keep the generated report intact in an archive tab and replace it with a
+    // plain grid that Apps Script can refresh on future runs.
+    if (!/typed columns/i.test(String(e && e.message))) throw e;
+    if (sources) {
+      let archiveName = 'Sources Archive';
+      let suffix = 2;
+      while (ss.getSheetByName(archiveName)) archiveName = 'Sources Archive ' + suffix++;
+      sources.setName(archiveName);
+    }
+    sources = ss.insertSheet('Sources');
+    sources.getRange(1,1,1,SOURCE_HEADERS.length).setValues([SOURCE_HEADERS]);
+    sources.setFrozenRows(1);
+    writeRows(sources);
+  }
 }
 
 function shortlist(rows, limit=25, perCompany=5) {
