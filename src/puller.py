@@ -132,7 +132,19 @@ def assess(job, prefs):
         flags.append("Salary floor configured; manual salary review required")
     if score < prefs["minimum_role_score"]:
         return None
-    return {k: v for k, v in {**job, "role_score": score, "priority": max(0, min(100, score + bonus)), "location_fit": geo, "experience": f"{years}+ years (parsed)" if years is not None else "Review posting", "salary": salary, "flags": "; ".join(flags), "evidence": "; ".join(evidence)}.items() if k != "description"}
+    # Fit dominates; employer publication date supplies a bounded freshness bonus.
+    freshness = 0
+    published = job.get("posted_at", "")
+    if published:
+        try:
+            age = max(0, (datetime.now(timezone.utc)-datetime.fromisoformat(published.replace("Z", "+00:00"))).days)
+            freshness = 10 if age <= 3 else 7 if age <= 7 else 4 if age <= 14 else 2 if age <= 30 else 0
+            evidence.append(f"Employer posting age: {age} days; freshness +{freshness}")
+        except (ValueError, TypeError):
+            flags.append("Posting date unavailable; freshness not scored")
+    else:
+        flags.append("Posting date unavailable; first seen is not posting date")
+    return {k: v for k, v in {**job, "role_score": score, "priority": max(0, min(100, score + bonus + freshness)), "location_fit": geo, "experience": f"{years}+ years (parsed)" if years is not None else "Review posting", "salary": salary, "flags": "; ".join(flags), "evidence": "; ".join(evidence)}.items() if k != "description"}
 
 
 def canonical(board, raw_id, title, location, url, description, **extra):
@@ -149,7 +161,7 @@ def collect(board):
         if not isinstance(data.get("jobs"), list):
             raise ValueError("Unexpected Greenhouse schema")
         for j in data["jobs"]:
-            jobs.append(canonical(board, j["id"], j["title"], j.get("location", {}).get("name", ""), j["absolute_url"], j.get("content", "")))
+            jobs.append(canonical(board, j["id"], j["title"], j.get("location", {}).get("name", ""), j["absolute_url"], j.get("content", ""), posted_at=j.get("first_published", "")))
         return jobs, True, errors
     if provider == "ashby":
         data = get_json(f"https://api.ashbyhq.com/posting-api/job-board/{slug}?includeCompensation=true")
@@ -157,7 +169,15 @@ def collect(board):
             raise ValueError("Unexpected Ashby schema")
         for j in data["jobs"]:
             if j.get("isListed", True):
-                jobs.append(canonical(board, j["id"], j["title"], j.get("location", ""), j.get("jobUrl") or j.get("applyUrl"), j.get("descriptionPlain") or j.get("descriptionHtml", ""), employment_type=j.get("employmentType", "")))
+                jobs.append(canonical(board, j["id"], j["title"], j.get("location", ""), j.get("jobUrl") or j.get("applyUrl"), j.get("descriptionPlain") or j.get("descriptionHtml", ""), employment_type=j.get("employmentType", ""), posted_at=j.get("publishedAt", "")))
+        return jobs, True, errors
+    if provider == "lever":
+        data = get_json(f"https://api.lever.co/v0/postings/{slug}?mode=json")
+        if not isinstance(data, list):
+            raise ValueError("Unexpected Lever schema")
+        for j in data:
+            desc = j.get("descriptionPlain", "") + "\n" + "\n".join(x.get("text", "") + " " + plain(x.get("content", "")) for x in j.get("lists", []))
+            jobs.append(canonical(board, j["id"], j["text"], j.get("categories", {}).get("location", ""), j["hostedUrl"], desc, employment_type=j.get("categories", {}).get("commitment", ""), posted_at=datetime.fromtimestamp(j["createdAt"]/1000, timezone.utc).isoformat() if j.get("createdAt") else ""))
         return jobs, True, errors
     if provider != "workday":
         raise ValueError("Unsupported source provider")

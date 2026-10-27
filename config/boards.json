@@ -1,8 +1,154 @@
 [
-  {"company":"RTX","provider":"workday","slug":"rtx","host":"globalhr.wd5.myworkdayjobs.com","tenant":"globalhr","site":"REC_RTX_Ext_Gateway","search_terms":["mechanical","manufacturing engineer","test engineer"],"max_pages":8,"max_details":100,"careers_url":"https://careers.rtx.com/global/en","context":"Required employer. Raytheon, Collins Aerospace and Pratt & Whitney; mechanical hardware design, test and manufacturing. Search is scoped, not the whole company."},
-  {"company":"Anduril","provider":"greenhouse","slug":"andurilindustries","careers_url":"https://job-boards.greenhouse.io/andurilindustries","context":"Mechanical hardware, integration, test and manufacturing; screen experience and clearance requirements."},
-  {"company":"Saronic","provider":"ashby","slug":"saronic","careers_url":"https://jobs.ashbyhq.com/saronic","context":"Maritime hardware and electromechanical integration; Austin opportunities."},
-  {"company":"Skydio","provider":"ashby","slug":"skydio","careers_url":"https://jobs.ashbyhq.com/skydio","context":"Drones and docks; mechanical design, hardware testing and manufacturing."},
-  {"company":"Formlabs","provider":"greenhouse","slug":"formlabs","careers_url":"https://job-boards.greenhouse.io/formlabs","context":"3D printers, mechanical product development and manufacturing; Boston area."},
-  {"company":"Rocket Lab","provider":"greenhouse","slug":"rocketlab","careers_url":"https://job-boards.greenhouse.io/rocketlab","context":"Space hardware, test fixtures, structures and manufacturing; Southern California opportunities."}
+  {
+    "company": "RTX",
+    "provider": "workday",
+    "slug": "rtx",
+    "host": "globalhr.wd5.myworkdayjobs.com",
+    "tenant": "globalhr",
+    "site": "REC_RTX_Ext_Gateway",
+    "search_terms": [
+      "mechanical",
+      "manufacturing engineer",
+      "test engineer"
+    ],
+    "max_pages": 8,
+    "max_details": 100,
+    "careers_url": "https://careers.rtx.com/global/en",
+    "context": "Required employer. Raytheon, Collins Aerospace and Pratt & Whitney; mechanical hardware design, test and manufacturing. Search is scoped, not the whole company."
+  },
+  {
+    "company": "Anduril",
+    "provider": "greenhouse",
+    "slug": "andurilindustries",
+    "careers_url": "https://job-boards.greenhouse.io/andurilindustries",
+    "context": "Mechanical hardware, integration, test and manufacturing; screen experience and clearance requirements."
+  },
+  {
+    "company": "Saronic",
+    "provider": "ashby",
+    "slug": "saronic",
+    "careers_url": "https://jobs.ashbyhq.com/saronic",
+    "context": "Maritime hardware and electromechanical integration; Austin opportunities."
+  },
+  {
+    "company": "Skydio",
+    "provider": "ashby",
+    "slug": "skydio",
+    "careers_url": "https://jobs.ashbyhq.com/skydio",
+    "context": "Drones and docks; mechanical design, hardware testing and manufacturing."
+  },
+  {
+    "company": "Formlabs",
+    "provider": "greenhouse",
+    "slug": "formlabs",
+    "careers_url": "https://job-boards.greenhouse.io/formlabs",
+    "context": "3D printers, mechanical product development and manufacturing; Boston area."
+  },
+  {
+    "company": "Rocket Lab",
+    "provider": "greenhouse",
+    "slug": "rocketlab",
+    "careers_url": "https://job-boards.greenhouse.io/rocketlab",
+    "context": "Space hardware, test fixtures, structures and manufacturing; Southern California opportunities."
+  },
+  {
+    "company": "Shield AI",
+    "provider": "lever",
+    "slug": "shieldai",
+    "careers_url": "https://jobs.lever.co/shieldai",
+    "context": "Autonomous aircraft; mechanical hardware and test in San Diego and Seattle."
+  },
+  {
+    "company": "Dexterity",
+    "provider": "lever",
+    "slug": "dexterity",
+    "careers_url": "https://jobs.lever.co/dexterity",
+    "context": "Robotics mechanisms and electromechanical integration in Redwood City; experience gaps need review."
+  },
+  {
+    "company": "SharkNinja",
+    "provider": "greenhouse",
+    "slug": "sharkninjaoperatingllc",
+    "careers_url": "https://job-boards.greenhouse.io/sharkninjaoperatingllc",
+    "context": "Consumer product design, prototyping and verification near Boston."
+  },
+  {
+    "company": "Zipline",
+    "provider": "greenhouse",
+    "slug": "flyzipline",
+    "careers_url": "https://job-boards.greenhouse.io/flyzipline",
+    "context": "Drone hardware, mechanisms, manufacturing and testing in the Bay Area."
+  },
+  {
+    "company": "Hadrian",
+    "provider": "ashby",
+    "slug": "hadrian-automation",
+    "careers_url": "https://jobs.ashbyhq.com/hadrian-automation",
+    "context": "Precision manufacturing, automation and hardware in Southern California."
+  },
+  {
+    "company": "Figure",
+    "provider": "greenhouse",
+    "slug": "figureai",
+    "careers_url": "https://job-boards.greenhouse.io/figureai",
+    "context": "Humanoid robot mechanisms, CAD and hardware integration in the Bay Area."
+  },
+  {
+    "company": "Relativity Space",
+    "provider": "greenhouse",
+    "slug": "relativity",
+    "careers_url": "https://job-boards.greenhouse.io/relativity",
+    "context": "Space hardware, additive manufacturing and test in Long Beach."
+  },
+  {
+    "company": "Boston Dynamics",
+    "provider": "workday",
+    "slug": "bostondynamics",
+    "host": "bostondynamics.wd1.myworkdayjobs.com",
+    "tenant": "bostondynamics",
+    "site": "Boston_Dynamics",
+    "search_terms": [
+      "mechanical",
+      "manufacturing engineer",
+      "test engineer"
+    ],
+    "max_pages": 4,
+    "max_details": 50,
+    "careers_url": "https://bostondynamics.wd1.myworkdayjobs.com/en-US/Boston_Dynamics",
+    "context": "Robotics hardware near Boston; senior roles may dominate."
+  },
+  {
+    "company": "Symbotic",
+    "provider": "workday",
+    "slug": "symbotic",
+    "host": "symbotic.wd504.myworkdayjobs.com",
+    "tenant": "symbotic",
+    "site": "Symbotic",
+    "search_terms": [
+      "mechanical",
+      "manufacturing engineer",
+      "test engineer"
+    ],
+    "max_pages": 4,
+    "max_details": 50,
+    "careers_url": "https://symbotic.wd504.myworkdayjobs.com/en-US/Symbotic",
+    "context": "Warehouse robotics and mechanical test near Boston."
+  },
+  {
+    "company": "Bose",
+    "provider": "workday",
+    "slug": "bose",
+    "host": "boseallaboutme.wd503.myworkdayjobs.com",
+    "tenant": "boseallaboutme",
+    "site": "Bose_Careers",
+    "search_terms": [
+      "mechanical",
+      "manufacturing engineer",
+      "test engineer"
+    ],
+    "max_pages": 4,
+    "max_details": 50,
+    "careers_url": "https://boseallaboutme.wd503.myworkdayjobs.com/en-US/Bose_Careers",
+    "context": "Consumer electronics enclosures, acoustics hardware and test near Boston."
+  }
 ]

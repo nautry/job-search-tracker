@@ -219,7 +219,7 @@
   "excluded_keywords": [],
   "required_location_keywords": [],
   "excluded_location_keywords": [],
-  "shortlist_limit": 25,
-  "shortlist_per_company": 5,
+  "shortlist_limit": 15,
+  "shortlist_per_company": 3,
   "stale_after_hours": 36
 }
