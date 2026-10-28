@@ -50,7 +50,8 @@
       "south san francisco",
       "foster city",
       "oakland",
-      "berkeley"
+      "berkeley",
+      "alameda"
     ],
     "Seattle": [
       "seattle",
@@ -93,7 +94,9 @@
       "broomfield",
       "centennial",
       "littleton",
-      "aurora, co"
+      "aurora, co",
+      "golden, colorado",
+      "golden, co"
     ],
     "Phoenix": [
       "phoenix",
@@ -237,5 +240,10 @@
     "fit": 0.85,
     "location": 0.5,
     "freshness": 0.8
-  }
+  },
+  "interested_sectors": [
+    "Mechanical and product hardware",
+    "Medical devices and surgical robotics",
+    "Sports equipment, performance sensing and rehabilitation"
+  ]
 }

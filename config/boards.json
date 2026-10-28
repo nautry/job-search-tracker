@@ -206,5 +206,70 @@
     "slug": "markforged",
     "careers_url": "https://job-boards.greenhouse.io/markforged",
     "context": "3D-printing hardware and manufacturing near Boston; small board watchlist."
+  },
+  {
+    "company": "Oura",
+    "provider": "greenhouse",
+    "slug": "oura",
+    "careers_url": "https://job-boards.greenhouse.io/oura",
+    "context": "Sports-adjacent wearable sensing and validation; current roles often require several years. Watchlist, not a guaranteed new-grad source."
+  },
+  {
+    "company": "Noah Medical",
+    "provider": "greenhouse",
+    "slug": "noahmedical",
+    "careers_url": "https://job-boards.greenhouse.io/noahmedical",
+    "context": "Surgical robotics; mechanical design, test fixtures, verification and manufacturing."
+  },
+  {
+    "company": "Penumbra",
+    "provider": "lever",
+    "slug": "penumbrainc",
+    "careers_url": "https://jobs.lever.co/penumbrainc",
+    "context": "Medical device manufacturing, development and quality; assess actual degree and experience requirements."
+  },
+  {
+    "company": "Ceribell",
+    "provider": "greenhouse",
+    "slug": "ceribell",
+    "careers_url": "https://job-boards.greenhouse.io/ceribell",
+    "context": "Medical EEG devices; hardware testing, instrumentation and manufacturing."
+  },
+  {
+    "company": "Hinge Health",
+    "provider": "ashby",
+    "slug": "hinge-health",
+    "careers_url": "https://jobs.ashbyhq.com/hinge-health",
+    "context": "Rehabilitation and musculoskeletal care devices; hardware test and product design, often Engineer II stretches."
+  },
+  {
+    "company": "Remedy Robotics",
+    "provider": "ashby",
+    "slug": "remedyrobotics",
+    "careers_url": "https://jobs.ashbyhq.com/remedyrobotics",
+    "context": "Endovascular robotic systems; mechanisms and electromechanical integration."
+  },
+  {
+    "company": "BioIntelliSense",
+    "provider": "lever",
+    "slug": "biointellisense",
+    "careers_url": "https://jobs.lever.co/biointellisense",
+    "context": "Wearable patient monitoring; current manufacturing role requires 3-8 years and regulated-device experience, lower priority stretch."
+  },
+  {
+    "company": "Catapult Sports",
+    "provider": "greenhouse",
+    "slug": "catapultsports",
+    "careers_url": "https://job-boards.greenhouse.io/catapultsports",
+    "context": "Athlete performance tracking and sports sensing hardware; hardware openings may be infrequent."
+  },
+  {
+    "company": "Intuitive",
+    "provider": "smartrecruiters",
+    "slug": "Intuitive",
+    "max_pages": 20,
+    "title_pattern": "mechanical|manufacturing engineer|test engineer|quality engineer|product development|r&d engineer|development engineer",
+    "careers_url": "https://careers.intuitive.com/",
+    "context": "Surgical robotics and instruments; paginated public board, US hardware-related title prefilter with detail-page qualification checks."
   }
 ]

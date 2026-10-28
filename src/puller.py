@@ -183,6 +183,28 @@ def collect(board):
             desc = j.get("descriptionPlain", "") + "\n" + "\n".join(x.get("text", "") + " " + plain(x.get("content", "")) for x in j.get("lists", []))
             jobs.append(canonical(board, j["id"], j["text"], j.get("categories", {}).get("location", ""), j["hostedUrl"], desc, employment_type=j.get("categories", {}).get("commitment", ""), posted_at=datetime.fromtimestamp(j["createdAt"]/1000, timezone.utc).isoformat() if j.get("createdAt") else ""))
         return jobs, True, errors
+    if provider == "smartrecruiters":
+        api = f"https://api.smartrecruiters.com/v1/companies/{slug}/postings"
+        complete = True
+        for page in range(board.get("max_pages", 20)):
+            data = get_json(api + f"?limit=100&offset={page*100}")
+            if not isinstance(data.get("content"), list) or "totalFound" not in data:
+                raise ValueError("Unexpected SmartRecruiters schema")
+            for j in data["content"]:
+                if j.get("location", {}).get("country", "").lower() != "us":
+                    continue
+                if SENIOR.search(j["name"]) or not re.search(board.get("title_pattern", ROLE.pattern), j["name"], re.I):
+                    continue
+                detail = get_json(api + "/" + j["id"])
+                sections = detail.get("jobAd", {}).get("sections", {})
+                description = "\n".join(v.get("text", "") for v in sections.values() if isinstance(v, dict))
+                jobs.append(canonical(board, j["id"], j["name"], j["location"].get("fullLocation", j["location"].get("city", "")), detail.get("applyUrl") or f"https://jobs.smartrecruiters.com/{slug}/{j['id']}", description, posted_at=j.get("releasedDate", ""), employment_type=j.get("typeOfEmployment", {}).get("label", "")))
+            if (page+1)*100 >= data["totalFound"]:
+                break
+            if page+1 == board.get("max_pages", 20):
+                complete = False
+                errors.append("SmartRecruiters page cap reached")
+        return jobs, complete, errors
     if provider != "workday":
         raise ValueError("Unsupported source provider")
     api = f"https://{board['host']}/wday/cxs/{board['tenant']}/{board['site']}"
@@ -260,7 +282,7 @@ def run(root=ROOT):
                 detail = "; ".join(errors)[:1500]
             except Exception as e:
                 raw, matching, state, detail = [], [], "failed", f"{type(e).__name__}: {e}"
-            health.append({"source": b["slug"], "company": b["company"], "status": state, "scope": "Keyword search with page/detail caps" if b["provider"] == "workday" else "Full public board", "collected": len(raw), "matched": len(matching), "checked_at": timestamp, "error": detail, "careers_url": b["careers_url"], "context": b["context"]})
+            health.append({"source": b["slug"], "company": b["company"], "status": state, "scope": "Keyword search with page/detail caps" if b["provider"] == "workday" else "Paginated board; US hardware-title prefilter" if b["provider"] == "smartrecruiters" else "Full public board", "collected": len(raw), "matched": len(matching), "checked_at": timestamp, "error": detail, "careers_url": b["careers_url"], "context": b["context"]})
             print(f"{b['company']}: {state}; {len(raw)} collected; {len(matching)} matches", flush=True)
     jobs = reconcile(previous, observed, health, timestamp)
     feed = {"schema_version": 1, "generated_at": timestamp, "source_status": sorted(health, key=lambda x: x["company"]), "jobs": jobs, "preferences": {k: prefs[k] for k in ['shortlist_limit','shortlist_per_company','stale_after_hours'] if k in prefs}, "config_hash": hashlib.sha256(json.dumps({'preferences':prefs,'boards':boards},sort_keys=True).encode()).hexdigest()}
