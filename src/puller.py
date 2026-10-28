@@ -56,7 +56,14 @@ def experience(text):
     chunks = re.split(r"(?<=[.!?;])\s+|[\n\r]", text)
     minimums = []
     for chunk in chunks:
-        if re.search(r"preferred|desirable|nice.to.have|master|ph\.?d|doctor", chunk, re.I):
+        if re.search(r"preferred|desirable|nice.to.have", chunk, re.I):
+            continue
+        if re.search(r"master|ph\.?d|doctor", chunk, re.I):
+            # Keep the bachelor's requirement when graduate-degree alternatives
+            # appear on the same line; do not silently treat it as unknown.
+            bachelor = re.search(r"(\d{1,2})\s*\+?\s*years?[^.;]{0,90}?\b(?:bachelor|bachelors|bs|bsc)\b", chunk, re.I)
+            if bachelor:
+                minimums.append(int(bachelor.group(1)))
             continue
         for m in re.finditer(r"\b(\d{1,2})(?:\s*[-–]\s*\d{1,2})?\s*\+?\s*years?\s+(?:of\s+)?(?:relevant\s+|professional\s+|related\s+|engineering\s+|industry\s+|work\s+)?experience", chunk, re.I):
             minimums.append(int(m.group(1)))
