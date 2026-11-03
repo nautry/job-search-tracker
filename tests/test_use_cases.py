@@ -37,6 +37,10 @@ class UseCasePreferences(unittest.TestCase):
         self.assertEqual(experience('Minimum 4 years of hardware product design experience with undergraduate degree, or minimum 2 years with graduate degree.'), 4)
         self.assertIsNone(assess({**self.job, 'description': 'Minimum 4 years of hardware product design experience with undergraduate degree, or minimum 2 years with graduate degree.'}, self.prefs))
 
+    def test_phd_alternative_does_not_hide_default_four_year_requirement(self):
+        self.assertEqual(experience('4+ years of industry experience designing precision mechanical assemblies (or 1+ years with an PhD)'), 4)
+        self.assertEqual(experience('Masters with 2 years of experience or Bachelors with 4 years of experience'), 4)
+
     def test_largest_separate_required_minimum_is_preserved(self):
         self.assertEqual(experience('Requires 4 years of mechanical design experience. Requires 1 year of CAD experience.'), 4)
 

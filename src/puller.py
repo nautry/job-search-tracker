@@ -59,11 +59,16 @@ def experience(text):
         if re.search(r"preferred|desirable|nice.to.have", chunk, re.I):
             continue
         if re.search(r"master|ph\.?d|doctor|graduate degree", chunk, re.I):
-            # Keep the bachelor's requirement when graduate-degree alternatives
-            # appear on the same line; do not silently treat it as unknown.
-            bachelor = re.search(r"(\d{1,2})\s*\+?\s*years?[^.;]{0,90}?\b(?:bachelor|bachelors|bs|bsc|undergraduate)\b", chunk, re.I)
-            if bachelor:
-                minimums.append(int(bachelor.group(1)))
+            # Resolve degree alternatives within clauses, rather than letting a
+            # graduate-degree alternative hide the applicant's BS requirement.
+            clauses = re.split(r"\bor\b|[,;]", chunk, flags=re.I)
+            degree_pattern = r"\b(?:bachelor|bachelors|undergraduate|bs|bsc)\b"
+            bachelor_clauses = [c for c in clauses if re.search(degree_pattern, c, re.I)]
+            candidates = bachelor_clauses or [c for c in clauses if not re.search(r"master|ph\.?d|doctor|graduate degree", c, re.I)]
+            for candidate in candidates:
+                requirement = re.search(r"\b(\d{1,2})(?:\s*[-–]\s*\d{1,2})?\s*\+?\s*years?\b", candidate, re.I)
+                if requirement:
+                    minimums.append(int(requirement.group(1)))
             continue
         for m in re.finditer(r"\b(\d{1,2})(?:\s*[-–]\s*\d{1,2})?\s*\+?\s*years?\s+(?:of\s+)?(?:(?:[A-Za-z/-]+)\s+){0,8}experience", chunk, re.I):
             minimums.append(int(m.group(1)))
