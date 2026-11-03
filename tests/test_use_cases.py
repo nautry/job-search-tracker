@@ -1,7 +1,7 @@
 import json
 import unittest
 from pathlib import Path
-from src.puller import assess, use_case_fit
+from src.puller import assess, use_case_fit, experience
 
 
 class UseCasePreferences(unittest.TestCase):
@@ -32,6 +32,19 @@ class UseCasePreferences(unittest.TestCase):
         defense = assess(self.job, self.prefs)
         self.assertEqual(medical['role_score'], defense['role_score'])
         self.assertGreater(medical['priority'], defense['priority'])
+
+    def test_undergraduate_requirement_is_not_replaced_by_graduate_alternative(self):
+        self.assertEqual(experience('Minimum 4 years of hardware product design experience with undergraduate degree, or minimum 2 years with graduate degree.'), 4)
+        self.assertIsNone(assess({**self.job, 'description': 'Minimum 4 years of hardware product design experience with undergraduate degree, or minimum 2 years with graduate degree.'}, self.prefs))
+
+    def test_largest_separate_required_minimum_is_preserved(self):
+        self.assertEqual(experience('Requires 4 years of mechanical design experience. Requires 1 year of CAD experience.'), 4)
+
+    def test_earlier_graduation_cohort_is_lower_priority(self):
+        original = assess(self.job, self.prefs)
+        earlier = assess({**self.job, 'title': 'Mechanical Engineer I - 2026 Graduate'}, self.prefs)
+        self.assertLess(earlier['priority'], original['priority'])
+        self.assertIn('Start eligibility conflict', earlier['flags'])
 
     def test_policy_is_optional_and_configurable(self):
         self.assertEqual(use_case_fit(self.job, {})[1], 0)

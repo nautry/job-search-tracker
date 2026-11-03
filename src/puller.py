@@ -58,16 +58,16 @@ def experience(text):
     for chunk in chunks:
         if re.search(r"preferred|desirable|nice.to.have", chunk, re.I):
             continue
-        if re.search(r"master|ph\.?d|doctor", chunk, re.I):
+        if re.search(r"master|ph\.?d|doctor|graduate degree", chunk, re.I):
             # Keep the bachelor's requirement when graduate-degree alternatives
             # appear on the same line; do not silently treat it as unknown.
-            bachelor = re.search(r"(\d{1,2})\s*\+?\s*years?[^.;]{0,90}?\b(?:bachelor|bachelors|bs|bsc)\b", chunk, re.I)
+            bachelor = re.search(r"(\d{1,2})\s*\+?\s*years?[^.;]{0,90}?\b(?:bachelor|bachelors|bs|bsc|undergraduate)\b", chunk, re.I)
             if bachelor:
                 minimums.append(int(bachelor.group(1)))
             continue
-        for m in re.finditer(r"\b(\d{1,2})(?:\s*[-–]\s*\d{1,2})?\s*\+?\s*years?\s+(?:of\s+)?(?:relevant\s+|professional\s+|related\s+|engineering\s+|industry\s+|work\s+)?experience", chunk, re.I):
+        for m in re.finditer(r"\b(\d{1,2})(?:\s*[-–]\s*\d{1,2})?\s*\+?\s*years?\s+(?:of\s+)?(?:(?:[A-Za-z/-]+)\s+){0,8}experience", chunk, re.I):
             minimums.append(int(m.group(1)))
-    return min(minimums) if minimums else None
+    return max(minimums) if minimums else None
 
 
 def use_case_fit(job, prefs):
@@ -179,6 +179,16 @@ def assess(job, prefs):
         flags.append("Posting date unavailable; first seen is not posting date")
     weights = prefs.get("ranking_weights", {"fit": 0.85, "location": 0.5, "freshness": 0.8})
     priority = round(score * weights["fit"] + bonus * weights["location"] + freshness * weights["freshness"], 1)
+    graduation_year = str(prefs.get("graduation", "2027-05"))[:4]
+    if re.search(r"202[0-6].*grad|grad.*202[0-6]", title, re.I) and graduation_year == "2027" and "2027" not in title:
+        flags.append("Start eligibility conflict: title targets an earlier graduation cohort; verify")
+        priority -= 25
+    if re.search(r"(?:Winter|Spring) 2027", title, re.I) and "2027-05" == prefs.get("graduation"):
+        flags.append("Start eligibility conflict: seasonal start may precede May 2027 graduation")
+        priority -= 25
+    if (re.search(r"associate engineer", title, re.I) and re.search(r"(?:twelve|12)[ -]weeks?", desc, re.I)) or re.search(r"fixed.term (?:role|position|program)|temporary (?:role|position|program)", desc, re.I):
+        flags.append("Temporary / fixed-duration program: verify length and permanent conversion")
+        priority -= 10
     use_case, use_case_adjustment, use_case_reason = use_case_fit(job, prefs)
     priority += use_case_adjustment
     if prefs.get("use_case_preferences"):
