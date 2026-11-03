@@ -14,91 +14,104 @@
     "max_pages": 8,
     "max_details": 100,
     "careers_url": "https://careers.rtx.com/global/en",
-    "context": "Required employer. Raytheon, Collins Aerospace and Pratt & Whitney; mechanical hardware design, test and manufacturing. Search is scoped, not the whole company."
+    "context": "Required employer. Raytheon, Collins Aerospace and Pratt & Whitney; mechanical hardware design, test and manufacturing. Search is scoped, not the whole company.",
+    "use_case_sector": "defense_review"
   },
   {
     "company": "Anduril",
     "provider": "greenhouse",
     "slug": "andurilindustries",
     "careers_url": "https://job-boards.greenhouse.io/andurilindustries",
-    "context": "Mechanical hardware, integration, test and manufacturing; screen experience and clearance requirements."
+    "context": "Mechanical hardware, integration, test and manufacturing; screen experience and clearance requirements.",
+    "use_case_sector": "defense_review"
   },
   {
     "company": "Saronic",
     "provider": "ashby",
     "slug": "saronic",
     "careers_url": "https://jobs.ashbyhq.com/saronic",
-    "context": "Maritime hardware and electromechanical integration; Austin opportunities."
+    "context": "Maritime hardware and electromechanical integration; Austin opportunities.",
+    "use_case_sector": "defense_review"
   },
   {
     "company": "Skydio",
     "provider": "ashby",
     "slug": "skydio",
     "careers_url": "https://jobs.ashbyhq.com/skydio",
-    "context": "Drones and docks; mechanical design, hardware testing and manufacturing."
+    "context": "Drones and docks; mechanical design, hardware testing and manufacturing.",
+    "use_case_sector": "defense_review"
   },
   {
     "company": "Formlabs",
     "provider": "greenhouse",
     "slug": "formlabs",
     "careers_url": "https://job-boards.greenhouse.io/formlabs",
-    "context": "3D printers, mechanical product development and manufacturing; Boston area."
+    "context": "3D printers, mechanical product development and manufacturing; Boston area.",
+    "use_case_sector": "civilian_hardware"
   },
   {
     "company": "Rocket Lab",
     "provider": "greenhouse",
     "slug": "rocketlab",
     "careers_url": "https://job-boards.greenhouse.io/rocketlab",
-    "context": "Space hardware, test fixtures, structures and manufacturing; Southern California opportunities."
+    "context": "Space hardware, test fixtures, structures and manufacturing; Southern California opportunities.",
+    "use_case_sector": "mixed_aerospace"
   },
   {
     "company": "Shield AI",
     "provider": "lever",
     "slug": "shieldai",
     "careers_url": "https://jobs.lever.co/shieldai",
-    "context": "Autonomous aircraft; mechanical hardware and test in San Diego and Seattle."
+    "context": "Autonomous aircraft; mechanical hardware and test in San Diego and Seattle.",
+    "use_case_sector": "defense_review"
   },
   {
     "company": "Dexterity",
     "provider": "lever",
     "slug": "dexterity",
     "careers_url": "https://jobs.lever.co/dexterity",
-    "context": "Robotics mechanisms and electromechanical integration in Redwood City; experience gaps need review."
+    "context": "Robotics mechanisms and electromechanical integration in Redwood City; experience gaps need review.",
+    "use_case_sector": "civilian_hardware"
   },
   {
     "company": "SharkNinja",
     "provider": "greenhouse",
     "slug": "sharkninjaoperatingllc",
     "careers_url": "https://job-boards.greenhouse.io/sharkninjaoperatingllc",
-    "context": "Consumer product design, prototyping and verification near Boston."
+    "context": "Consumer product design, prototyping and verification near Boston.",
+    "use_case_sector": "civilian_hardware"
   },
   {
     "company": "Zipline",
     "provider": "greenhouse",
     "slug": "flyzipline",
     "careers_url": "https://job-boards.greenhouse.io/flyzipline",
-    "context": "Drone hardware, mechanisms, manufacturing and testing in the Bay Area."
+    "context": "Drone hardware, mechanisms, manufacturing and testing in the Bay Area.",
+    "use_case_sector": "mixed_aerospace"
   },
   {
     "company": "Hadrian",
     "provider": "ashby",
     "slug": "hadrian-automation",
     "careers_url": "https://jobs.ashbyhq.com/hadrian-automation",
-    "context": "Precision manufacturing, automation and hardware in Southern California."
+    "context": "Precision manufacturing, automation and hardware in Southern California.",
+    "use_case_sector": "defense_review"
   },
   {
     "company": "Figure",
     "provider": "greenhouse",
     "slug": "figureai",
     "careers_url": "https://job-boards.greenhouse.io/figureai",
-    "context": "Humanoid robot mechanisms, CAD and hardware integration in the Bay Area."
+    "context": "Humanoid robot mechanisms, CAD and hardware integration in the Bay Area.",
+    "use_case_sector": "mixed_aerospace"
   },
   {
     "company": "Relativity Space",
     "provider": "greenhouse",
     "slug": "relativity",
     "careers_url": "https://job-boards.greenhouse.io/relativity",
-    "context": "Space hardware, additive manufacturing and test in Long Beach."
+    "context": "Space hardware, additive manufacturing and test in Long Beach.",
+    "use_case_sector": "mixed_aerospace"
   },
   {
     "company": "Boston Dynamics",
@@ -115,7 +128,8 @@
     "max_pages": 4,
     "max_details": 50,
     "careers_url": "https://bostondynamics.wd1.myworkdayjobs.com/en-US/Boston_Dynamics",
-    "context": "Robotics hardware near Boston; senior roles may dominate."
+    "context": "Robotics hardware near Boston; senior roles may dominate.",
+    "use_case_sector": "mixed_aerospace"
   },
   {
     "company": "Symbotic",
@@ -132,7 +146,8 @@
     "max_pages": 4,
     "max_details": 50,
     "careers_url": "https://symbotic.wd504.myworkdayjobs.com/en-US/Symbotic",
-    "context": "Warehouse robotics and mechanical test near Boston."
+    "context": "Warehouse robotics and mechanical test near Boston.",
+    "use_case_sector": "mixed_aerospace"
   },
   {
     "company": "Bose",
@@ -149,119 +164,136 @@
     "max_pages": 4,
     "max_details": 50,
     "careers_url": "https://boseallaboutme.wd503.myworkdayjobs.com/en-US/Bose_Careers",
-    "context": "Consumer electronics enclosures, acoustics hardware and test near Boston."
+    "context": "Consumer electronics enclosures, acoustics hardware and test near Boston.",
+    "use_case_sector": "civilian_hardware"
   },
   {
     "company": "Astranis",
     "provider": "greenhouse",
     "slug": "astranis",
     "careers_url": "https://job-boards.greenhouse.io/astranis",
-    "context": "Satellite electronics packaging, enclosures and ground test equipment; early-career opportunities, competitive hiring."
+    "context": "Satellite electronics packaging, enclosures and ground test equipment; early-career opportunities, competitive hiring.",
+    "use_case_sector": "mixed_aerospace"
   },
   {
     "company": "Vast",
     "provider": "greenhouse",
     "slug": "vast",
     "careers_url": "https://job-boards.greenhouse.io/vast",
-    "context": "Avionics mechanical design and integration; explicit new-grad roles near Long Beach."
+    "context": "Avionics mechanical design and integration; explicit new-grad roles near Long Beach.",
+    "use_case_sector": "mixed_aerospace"
   },
   {
     "company": "SpaceX",
     "provider": "greenhouse",
     "slug": "spacex",
     "careers_url": "https://job-boards.greenhouse.io/spacex",
-    "context": "Explicit new-graduate mechanical and manufacturing routes; competitive stretch. Review work hours and actual city, including non-metro sites."
+    "context": "Explicit new-graduate mechanical and manufacturing routes; competitive stretch. Review work hours and actual city, including non-metro sites.",
+    "use_case_sector": "mixed_aerospace"
   },
   {
     "company": "Alarm.com",
     "provider": "greenhouse",
     "slug": "alarmcom",
     "careers_url": "https://job-boards.greenhouse.io/alarmcom",
-    "context": "Connected devices, hardware troubleshooting and early-career quality/test in the DC region; distinguish software QA."
+    "context": "Connected devices, hardware troubleshooting and early-career quality/test in the DC region; distinguish software QA.",
+    "use_case_sector": "civilian_hardware"
   },
   {
     "company": "Axon",
     "provider": "greenhouse",
     "slug": "axon",
     "careers_url": "https://job-boards.greenhouse.io/axon",
-    "context": "Product enclosures, rugged hardware and automation in Scottsdale and other metros; Engineer II may be a stretch."
+    "context": "Product enclosures, rugged hardware and automation in Scottsdale and other metros; Engineer II may be a stretch.",
+    "use_case_sector": "mixed_aerospace"
   },
   {
     "company": "Verkada",
     "provider": "greenhouse",
     "slug": "verkada",
     "careers_url": "https://job-boards.greenhouse.io/verkada",
-    "context": "Connected product mechanical design in San Mateo; verify years and country, as many roles are senior or overseas."
+    "context": "Connected product mechanical design in San Mateo; verify years and country, as many roles are senior or overseas.",
+    "use_case_sector": "mixed_aerospace"
   },
   {
     "company": "Traeger",
     "provider": "greenhouse",
     "slug": "traegergrills",
     "careers_url": "https://job-boards.greenhouse.io/traegergrills",
-    "context": "Consumer product development, hardware validation and manufacturing near Salt Lake City; small board watchlist."
+    "context": "Consumer product development, hardware validation and manufacturing near Salt Lake City; small board watchlist.",
+    "use_case_sector": "civilian_hardware"
   },
   {
     "company": "Markforged",
     "provider": "greenhouse",
     "slug": "markforged",
     "careers_url": "https://job-boards.greenhouse.io/markforged",
-    "context": "3D-printing hardware and manufacturing near Boston; small board watchlist."
+    "context": "3D-printing hardware and manufacturing near Boston; small board watchlist.",
+    "use_case_sector": "civilian_hardware"
   },
   {
     "company": "Oura",
     "provider": "greenhouse",
     "slug": "oura",
     "careers_url": "https://job-boards.greenhouse.io/oura",
-    "context": "Sports-adjacent wearable sensing and validation; current roles often require several years. Watchlist, not a guaranteed new-grad source."
+    "context": "Sports-adjacent wearable sensing and validation; current roles often require several years. Watchlist, not a guaranteed new-grad source.",
+    "use_case_sector": "sports"
   },
   {
     "company": "Noah Medical",
     "provider": "greenhouse",
     "slug": "noahmedical",
     "careers_url": "https://job-boards.greenhouse.io/noahmedical",
-    "context": "Surgical robotics; mechanical design, test fixtures, verification and manufacturing."
+    "context": "Surgical robotics; mechanical design, test fixtures, verification and manufacturing.",
+    "use_case_sector": "medical"
   },
   {
     "company": "Penumbra",
     "provider": "lever",
     "slug": "penumbrainc",
     "careers_url": "https://jobs.lever.co/penumbrainc",
-    "context": "Medical device manufacturing, development and quality; assess actual degree and experience requirements."
+    "context": "Medical device manufacturing, development and quality; assess actual degree and experience requirements.",
+    "use_case_sector": "medical"
   },
   {
     "company": "Ceribell",
     "provider": "greenhouse",
     "slug": "ceribell",
     "careers_url": "https://job-boards.greenhouse.io/ceribell",
-    "context": "Medical EEG devices; hardware testing, instrumentation and manufacturing."
+    "context": "Medical EEG devices; hardware testing, instrumentation and manufacturing.",
+    "use_case_sector": "medical"
   },
   {
     "company": "Hinge Health",
     "provider": "ashby",
     "slug": "hinge-health",
     "careers_url": "https://jobs.ashbyhq.com/hinge-health",
-    "context": "Rehabilitation and musculoskeletal care devices; hardware test and product design, often Engineer II stretches."
+    "context": "Rehabilitation and musculoskeletal care devices; hardware test and product design, often Engineer II stretches.",
+    "use_case_sector": "medical"
   },
   {
     "company": "Remedy Robotics",
     "provider": "ashby",
     "slug": "remedyrobotics",
     "careers_url": "https://jobs.ashbyhq.com/remedyrobotics",
-    "context": "Endovascular robotic systems; mechanisms and electromechanical integration."
+    "context": "Endovascular robotic systems; mechanisms and electromechanical integration.",
+    "use_case_sector": "medical"
   },
   {
     "company": "BioIntelliSense",
     "provider": "lever",
     "slug": "biointellisense",
     "careers_url": "https://jobs.lever.co/biointellisense",
-    "context": "Wearable patient monitoring; current manufacturing role requires 3-8 years and regulated-device experience, lower priority stretch."
+    "context": "Wearable patient monitoring; current manufacturing role requires 3-8 years and regulated-device experience, lower priority stretch.",
+    "use_case_sector": "medical"
   },
   {
     "company": "Catapult Sports",
     "provider": "greenhouse",
     "slug": "catapultsports",
     "careers_url": "https://job-boards.greenhouse.io/catapultsports",
-    "context": "Athlete performance tracking and sports sensing hardware; hardware openings may be infrequent."
+    "context": "Athlete performance tracking and sports sensing hardware; hardware openings may be infrequent.",
+    "use_case_sector": "sports"
   },
   {
     "company": "Intuitive",
@@ -270,6 +302,85 @@
     "max_pages": 20,
     "title_pattern": "mechanical|manufacturing engineer|test engineer|quality engineer|product development|r&d engineer|development engineer",
     "careers_url": "https://careers.intuitive.com/",
-    "context": "Surgical robotics and instruments; paginated public board, US hardware-related title prefilter with detail-page qualification checks."
+    "context": "Surgical robotics and instruments; paginated public board, US hardware-related title prefilter with detail-page qualification checks.",
+    "use_case_sector": "medical"
+  },
+  {
+    "company": "Medtronic",
+    "provider": "workday",
+    "slug": "medtronic",
+    "host": "medtronic.wd1.myworkdayjobs.com",
+    "site": "MedtronicCareers",
+    "tenant": "medtronic",
+    "search_terms": [
+      "mechanical",
+      "manufacturing engineer",
+      "test engineer",
+      "design engineer"
+    ],
+    "max_pages": 4,
+    "max_details": 50,
+    "title_pattern": "mechanical|mechatronic|electro.?mechanical|manufacturing engineer|test engineer|design engineer|quality engineer|r[&/]d engineer|product development",
+    "careers_url": "https://medtronic.wd1.myworkdayjobs.com/en-US/MedtronicCareers",
+    "context": "Scoped medical-device hardware design, manufacturing and test search; check start date, experience and actual location.",
+    "use_case_sector": "medical"
+  },
+  {
+    "company": "Stryker",
+    "provider": "workday",
+    "slug": "stryker",
+    "host": "stryker.wd1.myworkdayjobs.com",
+    "site": "StrykerCareers",
+    "tenant": "stryker",
+    "search_terms": [
+      "mechanical",
+      "manufacturing engineer",
+      "test engineer",
+      "design engineer"
+    ],
+    "max_pages": 4,
+    "max_details": 50,
+    "title_pattern": "mechanical|mechatronic|electro.?mechanical|manufacturing engineer|test engineer|design engineer|quality engineer|r[&/]d engineer|product development",
+    "careers_url": "https://stryker.wd1.myworkdayjobs.com/en-US/StrykerCareers",
+    "context": "Scoped medical-device hardware design, manufacturing and test search; check start date, experience and actual location.",
+    "use_case_sector": "medical"
+  },
+  {
+    "company": "Peloton",
+    "provider": "greenhouse",
+    "slug": "peloton",
+    "host": "",
+    "site": "",
+    "careers_url": "https://job-boards.greenhouse.io/peloton",
+    "context": "Connected fitness equipment, mechanical hardware and validation; hardware openings may be infrequent.",
+    "use_case_sector": "sports"
+  },
+  {
+    "company": "Dexcom",
+    "provider": "workday",
+    "slug": "dexcom",
+    "host": "dexcom.wd1.myworkdayjobs.com",
+    "site": "Dexcom",
+    "tenant": "dexcom",
+    "search_terms": [
+      "mechanical",
+      "manufacturing engineer",
+      "test engineer",
+      "design engineer"
+    ],
+    "max_pages": 4,
+    "max_details": 50,
+    "title_pattern": "mechanical|mechatronic|electro.?mechanical|manufacturing engineer|test engineer|design engineer|quality engineer|r[&/]d engineer|product development",
+    "careers_url": "https://dexcom.wd1.myworkdayjobs.com/en-US/Dexcom",
+    "context": "Scoped medical-device hardware design, manufacturing and test search; check start date, experience and actual location.",
+    "use_case_sector": "medical"
+  },
+  {
+    "company": "Zoox",
+    "provider": "lever",
+    "slug": "zoox",
+    "careers_url": "https://jobs.lever.co/zoox",
+    "context": "Civilian autonomous passenger vehicles: mechanical, electromechanical, manufacturing and hardware test; check required experience.",
+    "use_case_sector": "civilian_hardware"
   }
 ]

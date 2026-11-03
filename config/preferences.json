@@ -226,7 +226,10 @@
     "reliability engineer",
     "design verification engineer",
     "mechanisms? engineer",
-    "quality engineer"
+    "quality engineer",
+    "research (and|&) development engineer",
+    "r[&/]d engineer",
+    "product engineer"
   ],
   "max_required_years": 3,
   "excluded_companies": [],
@@ -242,8 +245,38 @@
     "freshness": 0.8
   },
   "interested_sectors": [
-    "Mechanical and product hardware",
     "Medical devices and surgical robotics",
-    "Sports equipment, performance sensing and rehabilitation"
-  ]
+    "Sports equipment, performance sensing and rehabilitation",
+    "Civilian mechanical/product hardware, manufacturing, automation and aerospace",
+    "Military aircraft and other defense work: review actual product; deprioritize direct weapons"
+  ],
+  "use_case_preferences": {
+    "direct_weapons_adjustment": -28,
+    "military_aircraft_adjustment": -4,
+    "defense_unspecified_adjustment": -8,
+    "medical_adjustment": 8,
+    "sports_adjustment": 8,
+    "civilian_hardware_adjustment": 4,
+    "unknown_adjustment": 0,
+    "direct_weapons_patterns": [
+      "\\bmissiles?\\b",
+      "\\bmunitions?\\b",
+      "\\bwarheads?\\b",
+      "\\btorpedoes?\\b",
+      "\\blethality\\b",
+      "\\blethal weapons?\\b",
+      "\\bweapon systems?\\b",
+      "\\bweapons? integration\\b",
+      "\\bfire.control\\b",
+      "\\btarget engagement\\b",
+      "\\bordnance\\b"
+    ],
+    "military_aircraft_patterns": [
+      "\\bfighter\\b",
+      "\\bmilitary aircraft\\b",
+      "\\bcombat aircraft\\b",
+      "\\bX.BAT\\b",
+      "\\bV.BAT\\b"
+    ]
+  }
 }

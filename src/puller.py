@@ -70,6 +70,28 @@ def experience(text):
     return min(minimums) if minimums else None
 
 
+def use_case_fit(job, prefs):
+    """Explain keyword evidence and preferences, not an ethical certification."""
+    policy = prefs.get("use_case_preferences", {})
+    if not policy:
+        return "Not assessed", 0, ""
+    text = job["title"] + "\n" + job.get("description", "")
+    hits = [pattern for pattern in policy.get("direct_weapons_patterns", []) if re.search(pattern, text, re.I)]
+    if hits:
+        terms = sorted({m.group(0).lower() for pattern in hits for m in re.finditer(pattern, text, re.I)})
+        return "Direct weapons context: review", policy.get("direct_weapons_adjustment", -28), "Direct-weapons keyword evidence: " + ", ".join(terms[:5]) + "; verify whether role duties or company boilerplate"
+    if any(re.search(pattern, text, re.I) for pattern in policy.get("military_aircraft_patterns", [])):
+        return "Military aircraft / dual use: review", policy.get("military_aircraft_adjustment", -4), "Military aircraft context; user review of actual mission and program required"
+    if re.search(r"\b(commercial (aircraft|aviation)|civil aviation|passenger aircraft)\b", text, re.I):
+        return "Civil aviation context: verify program", policy.get("civilian_hardware_adjustment", 4), "Explicit civil/commercial aviation wording; verify team and program"
+    sector = job.get("use_case_sector", "unknown")
+    labels = {"medical": ("Medical devices / rehabilitation", "medical_adjustment", 8), "sports": ("Sports / wellness hardware", "sports_adjustment", 8), "civilian_hardware": ("Civilian product / industrial hardware", "civilian_hardware_adjustment", 4), "defense_review": ("Defense or dual-use employer; role unspecified", "defense_unspecified_adjustment", -8)}
+    if sector in labels:
+        label, key, default = labels[sector]
+        return label, policy.get(key, default), "Employer-sector context; verify actual product and team"
+    return "Use case not established: review", policy.get("unknown_adjustment", 0), "Employer name alone does not establish end use"
+
+
 def assess(job, prefs):
     title, desc, loc = job["title"], job.get("description", ""), job["location"]
     role_pattern = re.compile('|'.join(prefs.get('role_patterns', [ROLE.pattern])), re.I)
@@ -91,6 +113,8 @@ def assess(job, prefs):
     if NON_US.search(loc) and not re.search(r"united states|\busa\b", loc, re.I):
         return None
     if re.search(r"quality engineer", title, re.I) and not (re.search(r"mechanical engineering", desc, re.I) and re.search(r"hardware|physical|manufactur|device", desc, re.I)):
+        return None
+    if re.search(r"research (and|&) development engineer|r[&/]d engineer|product engineer", title, re.I) and not re.search(r"mechanical|electromechanical|3d cad|solidworks|prototype|test fixture", desc, re.I):
         return None
     years = experience(title + '\n' + desc)
     if years is not None and years > prefs.get("max_required_years", 3):
@@ -155,13 +179,18 @@ def assess(job, prefs):
         flags.append("Posting date unavailable; first seen is not posting date")
     weights = prefs.get("ranking_weights", {"fit": 0.85, "location": 0.5, "freshness": 0.8})
     priority = round(score * weights["fit"] + bonus * weights["location"] + freshness * weights["freshness"], 1)
-    return {k: v for k, v in {**job, "role_score": score, "priority": max(0, min(100, priority)), "location_fit": geo, "experience": f"{years}+ years (parsed)" if years is not None else "Review posting", "salary": salary, "flags": "; ".join(flags), "evidence": "; ".join(evidence)}.items() if k != "description"}
+    use_case, use_case_adjustment, use_case_reason = use_case_fit(job, prefs)
+    priority += use_case_adjustment
+    if prefs.get("use_case_preferences"):
+        flags.append("Use case: " + use_case)
+        evidence.append(f"Use-case preference adjustment {use_case_adjustment:+g}: {use_case_reason}")
+    return {k: v for k, v in {**job, "use_case": use_case, "use_case_adjustment": use_case_adjustment, "role_score": score, "priority": max(0, min(100, priority)), "location_fit": geo, "experience": f"{years}+ years (parsed)" if years is not None else "Review posting", "salary": salary, "flags": "; ".join(flags), "evidence": "; ".join(evidence)}.items() if k != "description"}
 
 
 def canonical(board, raw_id, title, location, url, description, **extra):
     if not re.match(r"https://", url or ""):
         raise ValueError("Missing HTTPS posting URL")
-    return {"id": f"{board['provider']}:{board['slug']}:{raw_id}", "source": board["slug"], "company": board["company"], "title": title, "location": location or "Location not supplied", "url": url, "description": plain(description), **extra}
+    return {"id": f"{board['provider']}:{board['slug']}:{raw_id}", "source": board["slug"], "company": board["company"], "title": title, "location": location or "Location not supplied", "url": url, "description": plain(description), "use_case_sector": board.get("use_case_sector", "unknown"), **extra}
 
 
 def collect(board):
@@ -187,7 +216,7 @@ def collect(board):
         if not isinstance(data, list):
             raise ValueError("Unexpected Lever schema")
         for j in data:
-            desc = j.get("descriptionPlain", "") + "\n" + "\n".join(x.get("text", "") + " " + plain(x.get("content", "")) for x in j.get("lists", []))
+            desc = j.get("descriptionPlain", "") + "\n" + j.get("additionalPlain", "") + "\n" + "\n".join(x.get("text", "") + " " + plain(x.get("content", "")) for x in j.get("lists", []))
             jobs.append(canonical(board, j["id"], j["text"], j.get("categories", {}).get("location", ""), j["hostedUrl"], desc, employment_type=j.get("categories", {}).get("commitment", ""), posted_at=datetime.fromtimestamp(j["createdAt"]/1000, timezone.utc).isoformat() if j.get("createdAt") else ""))
         return jobs, True, errors
     if provider == "smartrecruiters":
@@ -224,7 +253,7 @@ def collect(board):
                 if not isinstance(d.get("jobPostings"), list) or "total" not in d:
                     raise ValueError("Unexpected Workday schema")
                 for j in d["jobPostings"]:
-                    if (ROLE.search(j["title"]) or re.search(r"product development|design verification|mechanisms? engineer|integration engineer", j["title"], re.I)) and not SENIOR.search(j["title"]):
+                    if (re.search(board.get("title_pattern", ROLE.pattern), j["title"], re.I) or re.search(r"product development|design verification|mechanisms? engineer|integration engineer", j["title"], re.I)) and not SENIOR.search(j["title"]):
                         listings[j["externalPath"]] = j
                 if (page + 1) * 20 >= d["total"]:
                     break
@@ -309,3 +338,4 @@ def run(root=ROOT):
 if __name__ == "__main__":
     argparse.ArgumentParser(description=__doc__).parse_args()
     run()
+
