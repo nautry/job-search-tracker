@@ -1,24 +1,17 @@
-# Daily application routine
+# Daily job application workflow
 
-The scheduled collector and Sheet sync perform discovery automatically. Repeating scraping requests does not improve an unchanged feed. Open this project and say:
+GitHub Actions collects employer postings daily. The existing bound Apps Script imports the feed, preserves application history by stable job ID, and rebuilds Apply Next. See Settings for timestamps and Sources for coverage. RTX remains included; its Workday search can hit page or detail limits.
 
-> Check today's tracker against my current resume and preferences. Verify the top employer postings, remove already-applied roles from consideration, and recommend up to 15 applications. Explain required experience, May 2027 start eligibility, salary and location uncertainty. Prioritize realistic mechanical/product hardware/test roles and include a few credible stretches. Do not submit applications.
+Spend 5–10 minutes checking the strongest roles in Apply Next. Choose 1–3 that fit in a 30–60 minute session. Match your resume to the duties:
 
-1. Check Settings B5 and Sources; resolve stale feeds or report partial sources before calling coverage complete.
-2. Review Apply Next. It shows up to 15 not-applied, currently seen jobs, at most two per employer. It refreshes as statuses change; it is not a fixed daily batch.
-3. Spend 5-10 minutes screening the top rows. Open the employer posting and check required experience, degree/start date, city, work authorization and whether duties are hardware-related.
-4. Pick 3-5 strong fits first. Tailor the most relevant resume bullets truthfully; use enclosure design, roulette electronics integration and instrumentation evidence where appropriate.
-5. Submit on the employer site. Immediately record Applied, application date, follow-up date and useful notes in Jobs A:D. Set unsuitable postings to Not Interested so they leave the queue.
-6. Continue only if useful roles and time remain, up to 15 applications total. Because the shortlist refills after status changes, count actual submissions yourself in the Dashboard/by applied date.
-7. Review follow-ups and recruiter/interview preparation. A 30-60 minute session may yield 2-4 careful applications; 15 tailored applications can require much longer.
+- **Design** for CAD, mechanical assemblies, mechanisms, drawings and prototypes.
+- **Test/R&D** for experimentation, validation, fixtures, instrumentation and troubleshooting.
+- **Mechatronics** for electromechanical integration, controls, sensors and embedded work.
 
-Ranking uses 85% of role-fit score, half the location adjustment, and 80% of the bounded 0-10 posting-freshness bonus. Scores are not hiring probabilities. Salary is shown for manual comparison; unknown pay is retained and salary-band upper endpoints do not establish likely entry-level pay. First-seen dates never substitute for employer publication dates. All filters remain configurable; employer quality is assessed by actual role, not company prestige.
+Submit on the employer site. Update the application status, date, follow-up and notes in Jobs A:D. Use Dashboard to identify due follow-ups.
 
-For an immediate fresh collection, GitHub Actions > Daily employer search > Run workflow, then Sheet > Job search > Refresh jobs after successful completion. Otherwise the scheduled daily runs are sufficient. Config changes deploy through GitHub; ordinary preference/source updates do not require replacing Apps Script. Current supported provider adapters: Greenhouse, Ashby, Lever and scoped Workday. Sources marked ok can still be keyword-scoped.
+Apply candidates have a relevant degree and hardware-duty signal and plausible 2027 timing. Review means something material is unclear or outside the search preferences. Stretch generally means a two-year requirement with no clear project or internship equivalence. Three or more required years, incompatible cohorts, unknown start timing, internships, and factory/process work stay out of Apply Next. Employer qualification and personal export/clearance checks still apply.
 
+Employer publication dates drive recency. Unknown dates get zero points, and anything over 45 days is flagged for another availability check. Product-use flags do not alter scores. The queue has at most 12 roles and prefers up to two per employer. The sector target only applies among similarly qualified roles.
 
-## Use-case preferences and source coverage
-
-Prefer realistic medical-device, rehabilitation, sports/performance sensing and civilian product/industrial hardware roles. Retain RTX and other defense employers. Direct missile, munitions, warhead, torpedo and weapon-system keyword evidence lowers priority and appears in Flags/Why match. Military aircraft work remains eligible but requires mission review. These are applicant preferences and heuristic flags, not ethical certifications; distinguish actual duties from company boilerplate and do not infer a product from Tucson alone. Ask a recruiter what the team builds and what program the role supports. Preserve the existing RTX interview/application history.
-
-There is no hard maximum employer count. Expand with verified, relevant boards as useful, and report scoped searches and source failures. The 15-role queue limit is a daily workload aid, and two roles per employer promotes variety; neither is a company-coverage cap. Review real qualifications, May 2027 start compatibility and advertised compensation before recommending a role. Do not equate a match score with an interview probability, or a salary upper bound with an entry-level offer. Prioritize achievable applications over reputation. Confirm user-reported application statuses rather than automatically marking applications.
+When installing an updated version, replace Code.gs in the existing Sheet's Extensions → Apps Script project. Save and run syncJobs once when the matching feed is current. The existing trigger uses the same function name, so reuse it.

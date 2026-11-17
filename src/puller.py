@@ -11,6 +11,10 @@ import re
 import time
 import urllib.error
 import urllib.request
+if __package__:
+    from .eligibility import assess_eligibility, posting_age, recency_points
+else:
+    from eligibility import assess_eligibility, posting_age, recency_points
 
 ROOT = Path(__file__).resolve().parents[1]
 HEADERS = {"User-Agent": "PublicJobTracker/1.0", "Accept": "application/json"}
@@ -84,17 +88,17 @@ def use_case_fit(job, prefs):
     hits = [pattern for pattern in policy.get("direct_weapons_patterns", []) if re.search(pattern, text, re.I)]
     if hits:
         terms = sorted({m.group(0).lower() for pattern in hits for m in re.finditer(pattern, text, re.I)})
-        return "Direct weapons context: review", policy.get("direct_weapons_adjustment", -28), "Direct-weapons keyword evidence: " + ", ".join(terms[:5]) + "; verify whether role duties or company boilerplate"
+        return "Direct weapons context: review", 0, "Direct-weapons keyword evidence: " + ", ".join(terms[:5]) + "; verify whether role duties or company boilerplate"
     if any(re.search(pattern, text, re.I) for pattern in policy.get("military_aircraft_patterns", [])):
-        return "Military aircraft / dual use: review", policy.get("military_aircraft_adjustment", -4), "Military aircraft context; user review of actual mission and program required"
+        return "Military aircraft / dual use: review", 0, "Military aircraft context; user review of actual mission and program required"
     if re.search(r"\b(commercial (aircraft|aviation)|civil aviation|passenger aircraft)\b", text, re.I):
-        return "Civil aviation context: verify program", policy.get("civilian_hardware_adjustment", 4), "Explicit civil/commercial aviation wording; verify team and program"
+        return "Civil aviation context: verify program", 0, "Explicit civil/commercial aviation wording; verify team and program"
     sector = job.get("use_case_sector", "unknown")
     labels = {"medical": ("Medical devices / rehabilitation", "medical_adjustment", 8), "sports": ("Sports / wellness hardware", "sports_adjustment", 8), "civilian_hardware": ("Civilian product / industrial hardware", "civilian_hardware_adjustment", 4), "defense_review": ("Defense or dual-use employer; role unspecified", "defense_unspecified_adjustment", -8)}
     if sector in labels:
-        label, key, default = labels[sector]
-        return label, policy.get(key, default), "Employer-sector context; verify actual product and team"
-    return "Use case not established: review", policy.get("unknown_adjustment", 0), "Employer name alone does not establish end use"
+        label, _, _ = labels[sector]
+        return label, 0, "Employer-sector context; verify actual product and team"
+    return "Use case not established: review", 0, "Employer name alone does not establish end use"
 
 
 def assess(job, prefs):
@@ -111,19 +115,11 @@ def assess(job, prefs):
         return None
     if not role_pattern.search(title) or SENIOR.search(title):
         return None
-    if re.search(r"\b(intern|internship|co.op|contractor|technician)\b", title, re.I):
-        return None
-    if job.get("employment_type", "").lower() in {"intern", "internship", "contract", "parttime", "part-time"}:
-        return None
     if NON_US.search(loc) and not re.search(r"united states|\busa\b", loc, re.I):
         return None
     if re.search(r"quality engineer", title, re.I) and not (re.search(r"mechanical engineering", desc, re.I) and re.search(r"hardware|physical|manufactur|device", desc, re.I)):
         return None
-    if re.search(r"research (and|&) development engineer|r[&/]d engineer|product engineer", title, re.I) and not re.search(r"mechanical|electromechanical|3d cad|solidworks|prototype|test fixture", desc, re.I):
-        return None
     years = experience(title + '\n' + desc)
-    if years is not None and years > prefs.get("max_required_years", 3):
-        return None
     score = 42
     evidence = []
     if re.search(r"mechanical|mechatronic|electro.?mechanical|product design", title, re.I):
@@ -142,10 +138,9 @@ def assess(job, prefs):
     score = min(score, 95 if early else 82)
     if years == 2:
         score = min(score, 75)
-    if years == 3:
+    if years is not None and years >= 3:
         score = min(score, 65)
     flags = []
-    flags.append("May 2027 start / degree eligibility: review")
     if years is None:
         flags.append("Experience minimum not parsed; review qualifications")
     elif years:
@@ -170,36 +165,28 @@ def assess(job, prefs):
         flags.append("Salary floor configured; manual salary review required")
     if score < prefs["minimum_role_score"]:
         return None
-    # Fit dominates; employer publication date supplies a bounded freshness bonus.
-    freshness = 0
-    published = job.get("posted_at", "")
-    if published:
-        try:
-            age = max(0, (datetime.now(timezone.utc)-datetime.fromisoformat(published.replace("Z", "+00:00"))).days)
-            freshness = 10 if age <= 3 else 7 if age <= 7 else 4 if age <= 14 else 2 if age <= 30 else 0
-            evidence.append(f"Employer posting age: {age} days; freshness +{freshness}")
-        except (ValueError, TypeError):
-            flags.append("Posting date unavailable; freshness not scored")
-    else:
-        flags.append("Posting date unavailable; first seen is not posting date")
-    weights = prefs.get("ranking_weights", {"fit": 0.85, "location": 0.5, "freshness": 0.8})
-    priority = round(score * weights["fit"] + bonus * weights["location"] + freshness * weights["freshness"], 1)
-    graduation_year = str(prefs.get("graduation", "2027-05"))[:4]
-    if re.search(r"202[0-6].*grad|grad.*202[0-6]", title, re.I) and graduation_year == "2027" and "2027" not in title:
-        flags.append("Start eligibility conflict: title targets an earlier graduation cohort; verify")
+    assessment = assess_eligibility(job, prefs, years, geo)
+    flags.extend(assessment.pop("eligibility_flags"))
+    age = posting_age(job.get("posted_at"))
+    freshness = recency_points(age)
+    weights = prefs["ranking_weights"]
+    priority = score * weights["fit"] + bonus * weights["location"] + freshness * weights["freshness"]
+    priority += {"Apply": 12, "Stretch": -10, "Review": -15}[assessment["category"]]
+    if assessment["start_eligibility"] == "Start eligibility conflict":
         priority -= 25
-    if re.search(r"(?:Winter|Spring) 2027", title, re.I) and "2027-05" == prefs.get("graduation"):
-        flags.append("Start eligibility conflict: seasonal start may precede May 2027 graduation")
-        priority -= 25
-    if (re.search(r"associate engineer", title, re.I) and re.search(r"(?:twelve|12)[ -]weeks?", desc, re.I)) or re.search(r"fixed.term (?:role|position|program)|temporary (?:role|position|program)", desc, re.I):
-        flags.append("Temporary / fixed-duration program: verify length and permanent conversion")
-        priority -= 10
-    use_case, use_case_adjustment, use_case_reason = use_case_fit(job, prefs)
-    priority += use_case_adjustment
-    if prefs.get("use_case_preferences"):
+    use_case, _, use_case_reason = use_case_fit(job, prefs)
+    if use_case_reason:
         flags.append("Use case: " + use_case)
-        evidence.append(f"Use-case preference adjustment {use_case_adjustment:+g}: {use_case_reason}")
-    return {k: v for k, v in {**job, "use_case": use_case, "use_case_adjustment": use_case_adjustment, "role_score": score, "priority": max(0, min(100, priority)), "location_fit": geo, "experience": f"{years}+ years (parsed)" if years is not None else "Review posting", "salary": salary, "flags": "; ".join(flags), "evidence": "; ".join(evidence)}.items() if k != "description"}
+        evidence.append("Product context: " + use_case_reason)
+    flags.extend(["Employer publication date unavailable"] if age is None else
+                 ["Posting over 45 days old; verify availability"] if age > 45 else [])
+    return {k: v for k, v in {
+        **job, **assessment, "use_case": use_case, "use_case_adjustment": 0,
+        "role_score": score, "priority": round(max(0, min(100, priority)), 1),
+        "location_fit": geo, "experience": f"{years}+ years (parsed)" if years is not None else "Review posting",
+        "salary": salary, "flags": "; ".join(flags), "evidence": "; ".join(evidence),
+        "posting_age": age, "recency_points": freshness * weights["freshness"],
+    }.items() if k != "description"}
 
 
 def canonical(board, raw_id, title, location, url, description, **extra):
@@ -336,13 +323,13 @@ def run(root=ROOT):
             health.append({"source": b["slug"], "company": b["company"], "status": state, "scope": "Keyword search with page/detail caps" if b["provider"] == "workday" else "Paginated board; US hardware-title prefilter" if b["provider"] == "smartrecruiters" else "Full public board", "collected": len(raw), "matched": len(matching), "checked_at": timestamp, "error": detail, "careers_url": b["careers_url"], "context": b["context"]})
             print(f"{b['company']}: {state}; {len(raw)} collected; {len(matching)} matches", flush=True)
     jobs = reconcile(previous, observed, health, timestamp)
-    feed = {"schema_version": 1, "generated_at": timestamp, "source_status": sorted(health, key=lambda x: x["company"]), "jobs": jobs, "preferences": {k: prefs[k] for k in ['shortlist_limit','shortlist_per_company','stale_after_hours'] if k in prefs}, "config_hash": hashlib.sha256(json.dumps({'preferences':prefs,'boards':boards},sort_keys=True).encode()).hexdigest()}
+    feed = {"schema_version": 1, "generated_at": timestamp, "source_status": sorted(health, key=lambda x: x["company"]), "jobs": jobs, "preferences": {k: prefs[k] for k in ['shortlist_limit','shortlist_per_company','stale_after_hours','defense_target'] if k in prefs}, "config_hash": hashlib.sha256(json.dumps({'preferences':prefs,'boards':boards},sort_keys=True).encode()).hexdigest()}
     output.parent.mkdir(parents=True, exist_ok=True)
     tmp = output.with_suffix(".tmp")
-    tmp.write_text(json.dumps(feed, ensure_ascii=False, indent=2) + "\n")
+    tmp.write_text(json.dumps(feed, ensure_ascii=False, separators=(",", ":")) + "\n")
     tmp.replace(output)
     with output.with_suffix(".csv").open("w", newline="") as f:
-        fields = ["id", "company", "title", "location", "role_score", "location_fit", "priority", "experience", "salary", "flags", "evidence", "url", "source", "first_seen", "last_seen", "availability"]
+        fields = ["id", "company", "title", "location", "role_score", "location_fit", "priority", "experience", "salary", "flags", "evidence", "url", "source", "first_seen", "last_seen", "availability", "posted_at", "posting_age", "recency_points", "category", "start_eligibility", "fit_reason", "defense"]
         w = csv.DictWriter(f, fieldnames=fields, extrasaction="ignore")
         w.writeheader()
         for j in jobs:

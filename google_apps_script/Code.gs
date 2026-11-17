@@ -1,7 +1,8 @@
 /** @OnlyCurrentDoc */
 /* Bound to your tracker: Extensions > Apps Script. No credentials in source. */
-const HEADERS = ['Status','Applied date','Follow-up','Notes','Company','Job title','Location','Role fit','Location fit','Priority','Experience','Salary','Flags','Why match','Link','Job ID','Availability','First seen','Last seen','Source'];
+const HEADERS = ['Status','Applied date','Follow-up','Notes','Company','Job title','Location','Role fit','Location fit','Priority','Experience','Salary','Flags','Why match','Link','Job ID','Availability','First seen','Last seen','Source','Employer posted','Posting age (days)','Recency points','Recommendation','May 2027 eligibility','Fit reason'];
 const STATUSES = ['Not Applied','Applied','Interviewing','Offer','Rejected','Not Interested','Withdrawn'];
+const QUEUE_HEADERS = ['Recommendation','Company','Job title','Location','Employer posted','Experience','May 2027 eligibility','Priority','Why it fits','Jobs row'];
 const SOURCE_HEADERS = ['Company','Status','Collected','Matched','Checked at','Scope','Error','Careers URL','Context'];
 
 function onOpen() {
@@ -9,7 +10,10 @@ function onOpen() {
 }
 
 function onEdit(e) {
-  if (e && e.range.getSheet().getName()==='Jobs' && e.range.getColumn()<=4 && e.range.getRow()>1) refreshViews();
+  if (!e || e.range.getSheet().getName() !== 'Jobs' || e.range.getColumn() > 4 || e.range.getLastRow() < 2) return;
+  const lock = LockService.getDocumentLock();
+  if (!lock.tryLock(500)) return;
+  try { refreshViews(); } finally { lock.releaseLock(); }
 }
 
 function textCell(value) {
@@ -22,7 +26,16 @@ function autoFields(j) {
   if (!/^https:\/\//i.test(j.url)) throw new Error('Invalid job link: ' + j.id);
   const title = String(j.title).replace(/"/g,'""');
   const url = String(j.url).replace(/"/g,'""');
-  return [textCell(j.company), '=HYPERLINK("'+url+'","'+title+'")', textCell(j.location), Number(j.role_score), textCell(j.location_fit), Number(j.priority), textCell(j.experience), textCell(j.salary), textCell(j.flags), textCell(j.evidence), j.url, textCell(j.id), textCell(j.availability), j.first_seen ? new Date(j.first_seen) : '', j.last_seen ? new Date(j.last_seen) : '', textCell(j.source)];
+  return [textCell(j.company), '=HYPERLINK("'+url+'","'+title+'")', textCell(j.location), Number(j.role_score), textCell(j.location_fit), Number(j.priority), textCell(j.experience), textCell(j.salary), textCell(j.flags), textCell(j.evidence), j.url, textCell(j.id), textCell(j.availability), j.first_seen ? new Date(j.first_seen) : '', j.last_seen ? new Date(j.last_seen) : '', textCell(j.source),
+    postingDate(j.posted_at), j.posting_age ?? 'Unknown', Number(j.recency_points || 0),
+    ['Apply','Stretch'].includes(j.category) ? j.category : 'Review',
+    textCell(j.start_eligibility || 'Start timing unverified'),
+    textCell(j.fit_reason || 'Employer requirements need review')];
+}
+
+function postingDate(value) {
+  const ms = Date.parse(value || '');
+  return Number.isFinite(ms) && ms <= Date.now() ? new Date(ms) : '';
 }
 
 function validateFeed(feed) {
@@ -60,38 +73,61 @@ function syncJobs() {
     const maxAge = Number(feed.preferences && feed.preferences.stale_after_hours) || 36;
     if (Date.now()-Date.parse(feed.generated_at)>maxAge*3600000) throw new Error('Feed is stale. Run the GitHub collector first. Existing jobs were preserved.');
     const sh = ss.getSheetByName('Jobs');
-    if (JSON.stringify(sh.getRange(1,1,1,20).getValues()[0]) !== JSON.stringify(HEADERS)) throw new Error('Jobs headers changed. Restore headers before sync.');
-    const rows = sh.getLastRow() > 1 ? sh.getRange(2,1,sh.getLastRow()-1,20).getValues() : [];
-    const index = indexRows(rows);
-    const newJobs = feed.jobs.filter(j=>!index.has(j.id));
-    const last = Math.max(2, sh.getLastRow()+newJobs.length);
-    if (last > sh.getMaxRows()) sh.insertRowsAfter(sh.getMaxRows(),last-sh.getMaxRows());
-    // Existing A:D are never written. Sorting the whole table is safe: match by ID.
-    feed.jobs.forEach(j=>{if(index.has(j.id)) {
-      const fields=autoFields(j);
-      const firstSeen=rows[index.get(j.id)-2][17];
-      if(firstSeen) fields[13]=firstSeen;
-      sh.getRange(index.get(j.id),5,1,16).setValues([fields]);
-    }});
-    if (newJobs.length) {
-      const start = sh.getLastRow()+1;
-      sh.getRange(start,1,newJobs.length,20).setValues(newJobs.map(j=>['Not Applied','','','',...autoFields(j)]));
+    const existing = sh.getRange(1, 1, 1, HEADERS.length).getValues()[0];
+    if (existing.some((value, i) => i < 20 ? value !== HEADERS[i] : value && value !== HEADERS[i])) {
+      throw new Error('Unexpected Jobs headers. Restore the expected headers before sync.');
     }
-    const feedIds = new Set(feed.jobs.map(j=>j.id));
-    const sourceStates = new Map(feed.source_status.map(s=>[s.source,s.status]));
-    rows.forEach((r,i)=>{
-      if(r[15] && !feedIds.has(String(r[15]))) sh.getRange(i+2,17).setValue(sourceStates.get(String(r[19]))==='ok' ? 'Not seen in latest complete search' : 'Source incomplete / unavailable; retained');
+    sh.getRange(1, 21, 1, HEADERS.length - 20).setValues([HEADERS.slice(20)]);
+    const lastExisting = sh.getLastRow();
+    const rows = lastExisting > 1 ? sh.getRange(2, 1, lastExisting - 1, HEADERS.length).getValues() : [];
+    const index = indexRows(rows);
+    const newJobs = feed.jobs.filter(j => !index.has(j.id));
+    const last = Math.max(2, lastExisting + newJobs.length);
+    if (last > sh.getMaxRows()) sh.insertRowsAfter(sh.getMaxRows(), last - sh.getMaxRows());
+    const byId = new Map(feed.jobs.map(j => [j.id, j]));
+    const states = new Map(feed.source_status.map(source => [source.source, source.status]));
+
+    // Batch contiguous automated writes. Keep historical first-seen and all A:D values.
+    let start = 0;
+    let batch = [];
+    const flush = () => {
+      if (batch.length) sh.getRange(start, 5, batch.length, HEADERS.length - 4).setValues(batch);
+      batch = [];
+    };
+    rows.forEach((row, i) => {
+      const j = byId.get(String(row[15]));
+      if (!j) {
+        flush();
+        if (row[15]) {
+          sh.getRange(i + 2, 17).setValue(states.get(String(row[19])) === 'ok'
+            ? 'Not seen in latest complete search' : 'Source incomplete / unavailable; retained');
+          sh.getRange(i + 2, 24).setValue('Review');
+        }
+        return;
+      }
+      if (!batch.length) start = i + 2;
+      const fields = autoFields(j);
+      if (row[17] !== '') fields[13] = row[17];
+      batch.push(fields);
     });
+    flush();
+    if (newJobs.length) {
+      sh.getRange(lastExisting + 1, 1, newJobs.length, HEADERS.length)
+        .setValues(newJobs.map(j => ['Not Applied', '', '', '', ...autoFields(j)]));
+    }
     sh.getRange(2,1,last-1,1).setDataValidation(SpreadsheetApp.newDataValidation().requireValueInList(STATUSES,true).setAllowInvalid(false).build());
     sh.getRange(2,2,last-1,2).setNumberFormat('mm/dd/yy');
     sh.getRange(2,18,last-1,2).setNumberFormat('mm/dd/yy');
+    sh.getRange(2,21,last-1,1).setNumberFormat('mmm d, yyyy');
     const values = feed.source_status.map(s=>[s.company,s.status,s.collected,s.matched,new Date(s.checked_at),s.scope,s.error || '',s.careers_url,s.context]);
     writeSourceStatus(ss, values);
     cfg.getRange('B3').setValue(new Date(feed.generated_at));
     cfg.getRange('B4').setValue(new Date());
     cfg.getRange('B5').setValue('Sync succeeded; '+feed.jobs.length+' feed jobs; '+feed.source_status.filter(s=>s.status!=='ok').length+' sources need review');
-    PropertiesService.getDocumentProperties().setProperty('shortlistLimit', String(Number(feed.preferences && feed.preferences.shortlist_limit)||25));
-    PropertiesService.getDocumentProperties().setProperty('shortlistPerCompany', String(Number(feed.preferences && feed.preferences.shortlist_per_company)||5));
+    PropertiesService.getDocumentProperties().setProperty('shortlistLimit', String(Number(feed.preferences && feed.preferences.shortlist_limit)||12));
+    PropertiesService.getDocumentProperties().setProperty('shortlistPerCompany', String(Number(feed.preferences && feed.preferences.shortlist_per_company)||2));
+    PropertiesService.getDocumentProperties().setProperty('defenseTarget', String(Number(feed.preferences && feed.preferences.defense_target)||0.725));
+    PropertiesService.getDocumentProperties().setProperty('defenseIds', JSON.stringify(feed.jobs.filter(j => j.defense).map(j => j.id)));
     refreshViews();
   } catch(e) {
     SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Settings').getRange('B5').setValue('Sync failed: '+e.message);
@@ -102,8 +138,9 @@ function syncJobs() {
 function writeSourceStatus(ss, values) {
   let sources = ss.getSheetByName('Sources');
   const writeRows = sheet => {
-    if (sheet.getLastRow()>1) sheet.getRange(2,1,sheet.getLastRow()-1,9).clearContent();
+    const previousLast = sheet.getLastRow();
     if (values.length) sheet.getRange(2,1,values.length,9).setValues(values.map(r=>r.map(textCell)));
+    if (previousLast > values.length + 1) sheet.getRange(values.length + 2,1,previousLast-values.length-1,9).clearContent();
     if (values.length) sheet.getRange(2,5,values.length,1).setNumberFormat('yyyy-mm-dd hh:mm');
   };
   if (!sources) {
@@ -133,31 +170,63 @@ function writeSourceStatus(ss, values) {
   }
 }
 
-function shortlist(rows, limit=25, perCompany=5) {
+function shortlist(rows, limit=12, perCompany=2, defenseIds=new Set(), defenseTarget=0.725) {
+  limit = Math.min(12, Math.max(0, limit));
+  const candidates = rows.filter(r => r[15] && r[0] === 'Not Applied' && r[23] === 'Apply' &&
+    r[16] === 'Seen in latest search' && !/Deprioritized|Location review/.test(r[8]))
+    .sort((a, b) => b[9] - a[9] || String(a[15]).localeCompare(String(b[15])));
+  const selected = [];
   const counts = new Map();
-  return rows.filter(r=>r[15] && r[0]==='Not Applied' && r[16]==='Seen in latest search' && !/Deprioritized|Location review/.test(r[8])).sort((a,b)=>b[9]-a[9]).filter(r=>{
-    const company=String(r[4]);
-    const n=counts.get(company)||0;
-    if(n>=perCompany) return false;
-    counts.set(company,n+1); return true;
-  }).slice(0,limit);
+  function add(row) {
+    const n = counts.get(row[4]) || 0;
+    if (selected.length >= limit || selected.includes(row) || n >= perCompany) return false;
+    selected.push(row);
+    counts.set(row[4], n + 1);
+    return true;
+  }
+  // Fill reserved slots only with similarly qualified roles, then backfill by fit.
+  const close = candidates.filter(r => r[9] >= (candidates[0]?.[9] ?? 0) - 10);
+  const defenseSlots = Math.round(limit * defenseTarget);
+  for (const [isDefense, slots] of [[true, defenseSlots], [false, limit - defenseSlots]]) {
+    let taken = 0;
+    for (const r of close) {
+      if (taken < slots && defenseIds.has(String(r[15])) === isDefense && add(r)) taken++;
+    }
+  }
+  candidates.forEach(add);
+  return selected.sort((a, b) => b[9] - a[9]);
+}
+
+function statusCounts(rows) {
+  return Object.fromEntries(STATUSES.map(status => [status, rows.filter(r => r[15] && r[0] === status).length]));
 }
 
 function refreshViews() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const jobs = ss.getSheetByName('Jobs');
-  const rows = jobs.getLastRow()>1 ? jobs.getRange(2,1,jobs.getLastRow()-1,20).getValues() : [];
-  const indices = indexRows(rows);
+  const rows = jobs.getLastRow() > 1 ? jobs.getRange(2,1,jobs.getLastRow()-1,HEADERS.length).getValues() : [];
+  const index = indexRows(rows);
   const view = ss.getSheetByName('Apply Next');
-  if (view.getLastRow()>3) view.getRange(4,1,view.getLastRow()-3,9).clearContent();
   const props = PropertiesService.getDocumentProperties();
-  const values = shortlist(rows, Number(props.getProperty('shortlistLimit'))||25, Number(props.getProperty('shortlistPerCompany'))||5).map(r=>{
-    const jobUrl = String(r[14]).replace(/"/g,'""');
-    const title = String(r[5]).replace(/"/g,'""');
-    const loc = String(r[6]).length>100 ? 'Multiple US locations; see posting' : textCell(r[6]);
-    return [textCell(r[4]), '=HYPERLINK("'+jobUrl+'","'+title+'")',loc,r[7],r[9],textCell(r[10]),textCell(r[12]),'=HYPERLINK("'+ss.getUrl()+'#gid='+jobs.getSheetId()+'&range=A'+indices.get(String(r[15]))+'","Edit status / notes")',textCell(r[15])];
+  const defense = new Set(JSON.parse(props.getProperty('defenseIds') || '[]'));
+  const chosen = shortlist(rows, Number(props.getProperty('shortlistLimit')) || 12,
+    Number(props.getProperty('shortlistPerCompany')) || 2, defense, Number(props.getProperty('defenseTarget')) || 0.725);
+  if (view.getLastRow() > 3) view.getRange(4,1,view.getLastRow()-3,12).clearContent();
+  view.getRange(3,1,1,12).clearContent();
+  view.getRange(3,1,1,QUEUE_HEADERS.length).setValues([QUEUE_HEADERS]);
+  view.getRange(2,1).setValue(chosen.length + ' Apply candidates. Stretch and Review stay in Jobs.');
+  const values = chosen.map(r => {
+    const url = String(r[14]).replace(/"/g, '""');
+    const title = String(r[5]).replace(/"/g, '""');
+    const location = String(r[6]).length > 100 ? 'Multiple US locations; see posting' : r[6];
+    return ['Apply', textCell(r[4]), '=HYPERLINK("' + url + '","' + title + '")', textCell(location),
+      r[20] || 'Unknown', textCell(r[10]), textCell(r[24]), r[9], textCell(r[25]),
+      '=HYPERLINK("' + ss.getUrl() + '#gid=' + jobs.getSheetId() + '&range=A' + index.get(String(r[15])) + '","Track")'];
   });
-  if (values.length) view.getRange(4,1,values.length,9).setValues(values);
+  if (values.length) {
+    view.getRange(4,1,values.length,QUEUE_HEADERS.length).setValues(values);
+    view.getRange(4,5,values.length,1).setNumberFormat('mmm d, yyyy');
+  }
 }
 
 function installDailyTrigger() {
@@ -166,4 +235,4 @@ function installDailyTrigger() {
   ScriptApp.newTrigger('syncJobs').timeBased().everyDays(1).atHour(15).inTimezone('Etc/UTC').create();
 }
 
-if (typeof module !== 'undefined') module.exports = {autoFields,validateFeed,indexRows,shortlist,textCell};
+if (typeof module !== 'undefined') module.exports = {autoFields,validateFeed,indexRows,shortlist,textCell,statusCounts,HEADERS,STATUSES,QUEUE_HEADERS};

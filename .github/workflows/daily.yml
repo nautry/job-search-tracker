@@ -3,10 +3,12 @@ on:
   schedule:
     - cron: '23 11 * * *'
   push:
+    branches: [main]
     paths:
       - 'config/**'
       - 'src/**'
       - 'tests/**'
+      - 'google_apps_script/**'
       - '.github/workflows/daily.yml'
   workflow_dispatch:
 permissions:

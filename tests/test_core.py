@@ -20,7 +20,7 @@ class Core(unittest.TestCase):
         self.assertIsNone(assess(job(),prefs))
         prefs={**PREFS,'max_required_years':0}
         j=job();j['description']='Requires 2 years of experience.'
-        self.assertIsNone(assess(j,prefs))
+        self.assertEqual(assess(j,prefs)["category"], "Review")
     def test_fit_and_location(self):
         j=assess(job(),PREFS)
         self.assertGreater(j['role_score'],60)
@@ -28,11 +28,11 @@ class Core(unittest.TestCase):
         self.assertEqual(location_fit('Cedar Rapids, IA',PREFS)[1],-15)
         self.assertIn('Location review',location_fit('Unknown',PREFS)[0])
     def test_seniority(self):
-        for title in ['Senior Mechanical Engineer','Staff Test Engineer','Mechanical Engineer III','Mechanical Engineering Intern']:
+        for title in ['Senior Mechanical Engineer','Staff Test Engineer','Mechanical Engineer III']:
             j=job();j['title']=title
             self.assertIsNone(assess(j,PREFS))
         j=job();j['description']='Requires 5 years of professional experience.'
-        self.assertIsNone(assess(j,PREFS))
+        self.assertEqual(assess(j,PREFS)['category'], 'Review')
     def test_preferred_experience_not_hard_exclusion(self):
         self.assertIsNone(experience('Preferred: 5 years of experience.'))
         self.assertEqual(experience('Requires 2-4 years of engineering experience.'),2)

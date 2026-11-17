@@ -3,15 +3,24 @@ const vm=require('node:vm');
 const assert=require('node:assert/strict');
 const ctx={module:{exports:{}},Date,Map,Set,Number,String,JSON};
 vm.runInNewContext(fs.readFileSync('google_apps_script/Code.gs','utf8'),ctx);
-const {validateFeed,indexRows,shortlist,textCell}=ctx.module.exports;
+const {validateFeed,indexRows,shortlist,textCell,statusCounts}=ctx.module.exports;
 const feed={schema_version:1,generated_at:new Date().toISOString(),source_status:[],jobs:[{id:'a',title:'Engineer',url:'https://example.com',role_score:70,priority:80}]};
 validateFeed(feed);
 assert.throws(()=>validateFeed({...feed,jobs:[...feed.jobs,...feed.jobs]}),/duplicate/);
-const row=Array(20).fill('');row[0]='Applied';row[3]='Private note';row[15]='a';row[8]='Austin metro';row[16]='Seen in latest search';
+const row=Array(26).fill('');row[0]='Applied';row[3]='Private note';row[15]='a';row[8]='Austin metro';row[16]='Seen in latest search';
 assert.equal(indexRows([row]).get('a'),2);
 assert.throws(()=>indexRows([row,row]),/Duplicate/);
 assert.equal(shortlist([row]).length,0);
-row[0]='Not Applied';assert.equal(shortlist([row]).length,1);
+row[0]='Not Applied';row[23]='Apply';assert.equal(shortlist([row]).length,1);
+for (const status of ['Applied','Offer','Rejected','Not Interested','Interviewing','Withdrawn']) {
+  assert.equal(shortlist([Object.assign([...row], {0: status})]).length, 0);
+}
+for (const category of ['Stretch','Review','']) {
+  assert.equal(shortlist([Object.assign([...row], {23: category})]).length, 0);
+}
+assert.equal(statusCounts([Object.assign([...row], {0:'Offer'}), row]).Offer, 1);
+assert.equal(shortlist(Array.from({length:25}, (_, i) =>
+  Object.assign([...row], {4: 'Employer ' + i, 15: 'job-' + i})), 30).length, 12);
 row[8]='Deprioritized region';assert.equal(shortlist([row]).length,0);
 assert.equal(textCell('=IMPORTXML("https://evil", "//x")')[0],"'");
 // Exercise real sync twice with minimal Sheets mocks and a user edit between runs.
@@ -25,13 +34,14 @@ feed.jobs[0]={...feed.jobs[0],company:'Employer',location:'Austin, TX',location_
 ctx.UrlFetchApp={fetch:()=>({getResponseCode:()=>200,getContentText:()=>JSON.stringify(feed)})};
 ctx.syncJobs();
 assert.equal(sheets.Jobs.rows.length,2);
-sheets.Jobs.rows[1][0]='Applied';sheets.Jobs.rows[1][1]='10/25/26';sheets.Jobs.rows[1][3]='Private note';
+sheets.Jobs.rows[1][0]='Offer';sheets.Jobs.rows[1][1]='10/25/26';sheets.Jobs.rows[1][2]='11/16/26';sheets.Jobs.rows[1][3]='Private note';
 const originalFirst=sheets.Jobs.rows[1][17];
 feed.jobs[0].first_seen=new Date(Date.now()+1000).toISOString();
 feed.jobs[0].title='Updated Engineer';ctx.syncJobs();
 assert.equal(sheets.Jobs.rows[1][17],originalFirst);
 assert.equal(sheets.Jobs.rows.length,2);
-assert.equal(sheets.Jobs.rows[1][0],'Applied');
+assert.equal(sheets.Jobs.rows[1][0],'Offer');
+assert.equal(sheets.Jobs.rows[1][2],'11/16/26');
 assert.equal(sheets.Jobs.rows[1][1],'10/25/26');
 assert.equal(sheets.Jobs.rows[1][3],'Private note');
 assert.ok(sheets.Jobs.rows[1][5].includes('Updated Engineer'));

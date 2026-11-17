@@ -236,28 +236,20 @@
   "excluded_keywords": [],
   "required_location_keywords": [],
   "excluded_location_keywords": [],
-  "shortlist_limit": 15,
+  "shortlist_limit": 12,
   "shortlist_per_company": 2,
   "stale_after_hours": 36,
   "ranking_weights": {
     "fit": 0.85,
     "location": 0.5,
-    "freshness": 0.8
+    "freshness": 1.5
   },
   "interested_sectors": [
+    "Aerospace and defense hardware",
     "Medical devices and surgical robotics",
-    "Sports equipment, performance sensing and rehabilitation",
-    "Civilian mechanical/product hardware, manufacturing, automation and aerospace",
-    "Military aircraft and other defense work: review actual product; deprioritize direct weapons"
+    "Sports and civilian product hardware"
   ],
   "use_case_preferences": {
-    "direct_weapons_adjustment": -28,
-    "military_aircraft_adjustment": -4,
-    "defense_unspecified_adjustment": -8,
-    "medical_adjustment": 8,
-    "sports_adjustment": 8,
-    "civilian_hardware_adjustment": 4,
-    "unknown_adjustment": 0,
     "direct_weapons_patterns": [
       "\\bmissiles?\\b",
       "\\bmunitions?\\b",
@@ -278,5 +270,6 @@
       "\\bX.BAT\\b",
       "\\bV.BAT\\b"
     ]
-  }
+  },
+  "defense_target": 0.725
 }
