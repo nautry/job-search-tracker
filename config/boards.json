@@ -382,5 +382,47 @@
     "careers_url": "https://jobs.lever.co/zoox",
     "context": "Civilian autonomous passenger vehicles: mechanical, electromechanical, manufacturing and hardware test; check required experience.",
     "use_case_sector": "civilian_hardware"
+  },
+  {
+    "company": "Blue Origin",
+    "provider": "workday",
+    "slug": "blueorigin",
+    "host": "blueorigin.wd5.myworkdayjobs.com",
+    "tenant": "blueorigin",
+    "site": "BlueOrigin",
+    "max_pages": 2,
+    "max_details": 25,
+    "search_terms": [
+      "2027 Starts",
+      "mechanical engineer"
+    ],
+    "careers_url": "https://blueorigin.wd5.myworkdayjobs.com/en-US/BlueOrigin",
+    "context": "Scoped mechanical and graduate rotation search",
+    "use_case_sector": "mixed_aerospace",
+    "title_pattern": "mechanical|aerospace systems engineer"
+  },
+  {
+    "company": "Observable Space",
+    "provider": "ashby",
+    "slug": "observable-space",
+    "careers_url": "https://jobs.ashbyhq.com/observable-space",
+    "context": "Mechanical design and optical hardware",
+    "use_case_sector": "mixed_aerospace"
+  },
+  {
+    "company": "Radiant Industries",
+    "provider": "ashby",
+    "slug": "radiant-industries",
+    "careers_url": "https://jobs.ashbyhq.com/radiant-industries",
+    "context": "Mechanical design and energy hardware",
+    "use_case_sector": "civilian_hardware"
+  },
+  {
+    "company": "Mach Industries",
+    "provider": "greenhouse",
+    "slug": "machindustries",
+    "careers_url": "https://job-boards.greenhouse.io/machindustries",
+    "context": "Early-career hardware development and test",
+    "use_case_sector": "defense_review"
   }
 ]

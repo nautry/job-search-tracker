@@ -197,8 +197,16 @@ function shortlist(rows, limit=12, perCompany=2, defenseIds=new Set(), defenseTa
   return selected.sort((a, b) => b[9] - a[9]);
 }
 
-function statusCounts(rows) {
-  return Object.fromEntries(STATUSES.map(status => [status, rows.filter(r => r[15] && r[0] === status).length]));
+function statusFormula(status) {
+  if (!STATUSES.includes(status)) throw new Error('Unknown application status: ' + status);
+  return '=COUNTIF(Jobs!A2:A,"' + status + '")';
+}
+
+function refreshDashboard(ss) {
+  const dashboard = ss.getSheetByName('Dashboard');
+  if (!dashboard) return;
+  dashboard.getRange(7, 2, 4, 1).setValues(['Applied','Interviewing','Offer','Rejected'].map(s => [statusFormula(s)]));
+  dashboard.getRange(20, 2, 2, 1).setValues(['Not Interested','Withdrawn'].map(s => [statusFormula(s)]));
 }
 
 function refreshViews() {
@@ -206,6 +214,7 @@ function refreshViews() {
   const jobs = ss.getSheetByName('Jobs');
   const rows = jobs.getLastRow() > 1 ? jobs.getRange(2,1,jobs.getLastRow()-1,HEADERS.length).getValues() : [];
   const index = indexRows(rows);
+  refreshDashboard(ss);
   const view = ss.getSheetByName('Apply Next');
   const props = PropertiesService.getDocumentProperties();
   const defense = new Set(JSON.parse(props.getProperty('defenseIds') || '[]'));
@@ -235,4 +244,4 @@ function installDailyTrigger() {
   ScriptApp.newTrigger('syncJobs').timeBased().everyDays(1).atHour(15).inTimezone('Etc/UTC').create();
 }
 
-if (typeof module !== 'undefined') module.exports = {autoFields,validateFeed,indexRows,shortlist,textCell,statusCounts,HEADERS,STATUSES,QUEUE_HEADERS};
+if (typeof module !== 'undefined') module.exports = {autoFields,validateFeed,indexRows,shortlist,textCell,statusFormula,HEADERS,STATUSES,QUEUE_HEADERS};

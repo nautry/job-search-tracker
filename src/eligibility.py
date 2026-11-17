@@ -4,12 +4,12 @@ import re
 
 EXCLUDED_DUTIES = re.compile(
     r"\b(?:manufacturing|production|process|industrial|tooling|factory automation|"
-    r"supplier development|equipment|quality)\s+(?:\w+\s+)?engineer\b|\btooling\b", re.I
+    r"supplier development|equipment|quality)\s+(?:\w+\s+)?engineer\b|\b(?:tooling|factory automation|production automation)\b|engineer,\s*automation\b", re.I
 )
 HARDWARE_DUTIES = re.compile(
     r"\b(?:CAD|SolidWorks|Creo|CATIA|autodesk|mechanisms?|mechanical design|"
     r"machine design|mechanical testing|hardware test|test fixtures?|electromechanical|"
-    r"mechatronics?|engineering drawings|prototypes?|structural analysis|GD&T)\b", re.I
+    r"mechatronics?|engineering drawings|prototypes?|structural analysis|GD&T|flight.test|data acquisition|environmental testing|electrical integration)\b", re.I
 )
 DEGREE = re.compile(r"mechanical engineering|aerospace engineering|mechatronics|engineering or related|engineering discipline", re.I)
 ENTRY_TITLE = re.compile(r"\b(?:new.grad(?:uate)?|entry.level|early.career|university.grad|recent graduate)\b", re.I)
@@ -51,11 +51,11 @@ def assess_eligibility(job, prefs, years, location_fit):
         or
         past_cohort and int(past_cohort[1]) < int(year) and year not in title
         or re.search(rf"\b(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|Winter)\s+{year}\b", combined, re.I)
-        or re.search(r"\b(?:immediate start|start immediately)\b", combined, re.I)
+        or re.search(r"\b(?:immediate start|start immediately|immediate openings)\b", combined, re.I)
     )
     exact_start = re.search(rf"\b(?:May|June|Jun)\s+{year}\b", combined, re.I)
     seasonal_start = re.search(rf"\b(?:summer|fall|autumn|July|August|September)\s+{year}\b", combined, re.I)
-    graduate_cohort = re.search(rf"{year}\s+(?:early.career|new.grad|grad)|graduat\w*.{{0,55}}{year}", combined, re.I)
+    graduate_cohort = re.search(rf"{year}\s+(?:early.career|new.grad|grad)|graduat\w*.{{0,55}}{year}|{year} Starts", combined, re.I)
     if too_early:
         start = "Start eligibility conflict"
     elif exact_start:

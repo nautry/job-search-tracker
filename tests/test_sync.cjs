@@ -3,7 +3,7 @@ const vm=require('node:vm');
 const assert=require('node:assert/strict');
 const ctx={module:{exports:{}},Date,Map,Set,Number,String,JSON};
 vm.runInNewContext(fs.readFileSync('google_apps_script/Code.gs','utf8'),ctx);
-const {validateFeed,indexRows,shortlist,textCell,statusCounts}=ctx.module.exports;
+const {validateFeed,indexRows,shortlist,textCell,statusFormula}=ctx.module.exports;
 const feed={schema_version:1,generated_at:new Date().toISOString(),source_status:[],jobs:[{id:'a',title:'Engineer',url:'https://example.com',role_score:70,priority:80}]};
 validateFeed(feed);
 assert.throws(()=>validateFeed({...feed,jobs:[...feed.jobs,...feed.jobs]}),/duplicate/);
@@ -18,7 +18,10 @@ for (const status of ['Applied','Offer','Rejected','Not Interested','Interviewin
 for (const category of ['Stretch','Review','']) {
   assert.equal(shortlist([Object.assign([...row], {23: category})]).length, 0);
 }
-assert.equal(statusCounts([Object.assign([...row], {0:'Offer'}), row]).Offer, 1);
+const offerFormula = statusFormula('Offer');
+const formulaParts = offerFormula.match(/^=COUNTIF\(Jobs!A(\d+):A,"([^"]+)"\)$/);
+const dashboardRows = [['Status'], ['Offer'], ['Applied']];
+assert.equal(dashboardRows.slice(Number(formulaParts[1]) - 1).filter(r => r[0] === formulaParts[2]).length, 1);
 assert.equal(shortlist(Array.from({length:25}, (_, i) =>
   Object.assign([...row], {4: 'Employer ' + i, 15: 'job-' + i})), 30).length, 12);
 row[8]='Deprioritized region';assert.equal(shortlist([row]).length,0);

@@ -229,7 +229,10 @@
     "quality engineer",
     "research (and|&) development engineer",
     "r[&/]d engineer",
-    "product engineer"
+    "product engineer",
+    "flight test",
+    "vehicle performance",
+    "aerospace systems engineer"
   ],
   "max_required_years": 3,
   "excluded_companies": [],
