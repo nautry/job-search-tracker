@@ -55,3 +55,12 @@ ctx.UrlFetchApp.fetch=()=>({getResponseCode:()=>200,getContentText:()=>JSON.stri
 assert.throws(()=>ctx.syncJobs(),/stale/);
 assert.equal(sheets.Jobs.rows[1][3],'Private note');
 console.log('Sync tests passed: duplicate guards, shortlist, formula escaping, two refreshes, status/date/notes retention, failed-download preservation.');
+
+// A refresh includes row two offers and derives follow-ups from the existing manual dates.
+sheets.Dashboard=makeSheet(Array.from({length:26},()=>[]));
+ctx.refreshDashboard(ctx.SpreadsheetApp.getActiveSpreadsheet());
+assert.equal(sheets.Dashboard.rows[8][1],statusFormula('Offer'));
+assert.ok(sheets.Dashboard.rows[21][1].includes('"Offer"'));
+assert.ok(sheets.Dashboard.rows[22][1].includes('workday:rtx:01879801'));
+assert.ok(sheets.Dashboard.rows[25][1].includes('Jobs!X2:X,"Apply"'));
+console.log('Dashboard refresh regressions passed.');

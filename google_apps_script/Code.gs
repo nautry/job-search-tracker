@@ -207,6 +207,21 @@ function refreshDashboard(ss) {
   if (!dashboard) return;
   dashboard.getRange(7, 2, 4, 1).setValues(['Applied','Interviewing','Offer','Rejected'].map(s => [statusFormula(s)]));
   dashboard.getRange(20, 2, 2, 1).setValues(['Not Interested','Withdrawn'].map(s => [statusFormula(s)]));
+  dashboard.getRange(5, 2, 2, 1).setValues([
+    ['=COUNTIF(Jobs!Q2:Q,"Seen in latest search")'],
+    ['=COUNTIF(Jobs!A2:A,"Not Applied")'],
+  ]);
+  dashboard.getRange(22, 2).setValue(
+    '=COUNTIFS(Jobs!C2:C,">0",Jobs!C2:C,"<="&TODAY(),Jobs!A2:A,"Applied")' +
+    '+COUNTIFS(Jobs!C2:C,">0",Jobs!C2:C,"<="&TODAY(),Jobs!A2:A,"Interviewing")' +
+    '+COUNTIFS(Jobs!C2:C,">0",Jobs!C2:C,"<="&TODAY(),Jobs!A2:A,"Offer")'
+  );
+  dashboard.getRange(23, 2).setValue(
+    '=IFERROR(INDEX(FILTER(Jobs!C2:C,Jobs!P2:P="workday:rtx:01879801"),1),"")'
+  ).setNumberFormat('mmm d, yyyy');
+  dashboard.getRange(24, 2).setValue('=COUNTIFS(Jobs!R2:R,Settings!B3,Jobs!Q2:Q,"Seen in latest search")');
+  dashboard.getRange(25, 2).setValue("=COUNTIF('Apply Next'!A4:A15,\"Apply\")");
+  dashboard.getRange(26, 2).setValue('=COUNTIFS(Jobs!A2:A,"Not Applied",Jobs!Q2:Q,"Seen in latest search",Jobs!X2:X,"Apply")');
 }
 
 function refreshViews() {
