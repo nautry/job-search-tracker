@@ -23,6 +23,7 @@ class Lifecycle(unittest.TestCase):
     def test_repost_text_flags_never_merges(self):
         desc=' '.join('hardware CAD mechanism prototype validation structural engineering design sensor '+str(i) for i in range(30))
         a={**job(),**identity_evidence({'description':desc})};b={**a,'id':'greenhouse:test:2'}
+        b['title']='Mechanical Engineer - New Graduate 2027'
         rows=mark_related([a,b]);self.assertEqual(len(rows),2)
         self.assertEqual(rows[0]['related_ids'],[b['id']]);self.assertIn('Possible repost',rows[0]['duplicate_state'])
         b['location']='Boston, MA';self.assertFalse(mark_related([a,b])[0]['related_ids'])

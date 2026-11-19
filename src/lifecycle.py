@@ -61,11 +61,16 @@ def mark_related(jobs):
         j['related_ids'] = []
         j['duplicate_state'] = 'Distinct / no duplicate evidence'
         title = re.sub(r'[^a-z0-9]+', ' ', j['title'].casefold()).strip()
-        groups.setdefault((company_key(j), title), []).append(j)
+        j['_identity_title'] = re.sub(r'\b(?:new graduate|new grad|20\d{2})\b', '', title).strip()
+        groups.setdefault(company_key(j), []).append(j)
     for group in groups.values():
         for i, a in enumerate(group):
             for b in group[i+1:]:
                 same_req = requisition(a) == requisition(b)
+                ta, tb = set(a['_identity_title'].split()), set(b['_identity_title'].split())
+                title_close = bool(ta | tb) and len(ta & tb)/len(ta | tb) >= .85
+                if not same_req and not title_close:
+                    continue
                 sa, sb = set(a.get('description_signature', [])), set(b.get('description_signature', []))
                 near = min(a.get('description_words', 0), b.get('description_words', 0)) >= 80 and bool(sa | sb) and len(sa & sb) / len(sa | sb) >= .90
                 # Same title alone is never enough. Different IDs stay separate even for identical text.
@@ -73,6 +78,8 @@ def mark_related(jobs):
                     for one, other in [(a, b), (b, a)]:
                         one['related_ids'].append(other['id'])
                         one['duplicate_state'] = 'Exact requisition alias; review history' if same_req else 'Possible repost / duplicate; distinct requisitions retained'
+    for j in jobs:
+        j.pop('_identity_title', None)
     return jobs
 
 

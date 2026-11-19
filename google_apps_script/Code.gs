@@ -201,7 +201,7 @@ function queueCandidates(rows, now=new Date()) {
   return rows.filter(r => r[15] && r[0] === 'Not Applied' && r[33] === true &&
     r[26] !== 'Confirmed closed' && !deferred(r, now) && !/Deprioritized|Location review/.test(r[8]) &&
     Number(r[9]) >= 55).sort((a,b) => {
-      const rank = r => ready(r, now) ? 0 : r[23] === 'Stretch' ? 1 : 2;
+      const rank = r => ready(r, now) ? 0 : r[23] === 'Review' && (/entry.level|new.grad|early.career|engineer i\b/i.test(r[5]) || /^(0|1)\+/.test(r[10])) ? 1 : r[23] === 'Stretch' ? 2 : 3;
       return rank(a)-rank(b) || b[9]-a[9] || String(a[15]).localeCompare(String(b[15]));
     });
 }

@@ -109,6 +109,7 @@ def assess_eligibility(job, prefs, years, location_fit):
         flags.append("Check work authorization, export and clearance eligibility before submitting")
     return {
         "category": category, "start_eligibility": start, "fit_reason": reason,
+        "queue_eligible": bool(not (too_early or nonfull or graduate_degree or EXCLUDED_DUTIES.search(title)) and not re.search(r"sourcing|procurement|construction|welding|facilities|HVAC|technician|field service", title, re.I) and matches and DEGREE.search(desc) and (years is None or years < 3) and not location_fit.startswith(("Deprioritized", "Location review"))),
         "defense": job.get("use_case_sector") == "defense_review" or bool(re.search(r"\bStarshield\b", title, re.I)),
         "eligibility_flags": flags,
     }

@@ -184,7 +184,7 @@ def assess(job, prefs):
     flags.extend(["Employer publication date unavailable"] if age is None else
                  ["Posting over 45 days old; verify availability"] if age > 45 else [])
     return {k: v for k, v in {
-        **job, **assessment, **identity_evidence(job), "requisition_id": str(job.get("requisition_id") or job["id"].split(":", 2)[-1]), "resume_variant": resume_variant(job), "queue_eligible": bool(not re.search(r"manufacturing|production|process|industrial|tooling|factory automation|equipment engineer|quality engineer|intern|co.op|contract", title, re.I) and (years is None or years < 3) and not assessment["start_eligibility"].startswith("Start eligibility conflict") and not geo.startswith(("Location review", "Deprioritized"))), "use_case": use_case, "use_case_adjustment": 0,
+        **job, **assessment, **identity_evidence(job), "requisition_id": str(job.get("requisition_id") or job["id"].split(":", 2)[-1]), "resume_variant": resume_variant(job), "use_case": use_case, "use_case_adjustment": 0,
         "role_score": score, "priority": round(max(0, min(100, priority)), 1),
         "location_fit": geo, "experience": f"{years}+ years (parsed)" if years is not None else "Review posting",
         "salary": salary, "flags": "; ".join(flags), "evidence": "; ".join(evidence),
@@ -378,7 +378,7 @@ def run(root=ROOT):
             print(f"{b['company']}: {state}; {len(raw)} collected; {len(matching)} matches", flush=True)
     # Budgeted URL checks favor actual queue candidates. Unchecked listings remain unverified.
     missing = sorted((j for j in previous if j.get('category') in ('Apply', 'Stretch') and j['id'] not in {r['id'] for r in observed}), key=lambda j: -j['priority'])[:8]
-    candidates = sorted((j for j in observed if j.get('queue_eligible')), key=lambda j: ({'Apply': 0, 'Stretch': 1, 'Review': 2}[j['category']], -j['priority'], j['id']))[:max(0, prefs.get('verification_budget', 40)-len(missing))]
+    candidates = sorted((j for j in observed if j.get('queue_eligible')), key=lambda j: (0 if j['category'] == 'Apply' else 1 if j['category'] == 'Review' and (re.search(r'entry.level|new.grad|early.career|engineer i\b', j['title'], re.I) or j['experience'].startswith(('0+', '1+'))) else 2 if j['category'] == 'Stretch' else 3, -j['priority'], j['id']))[:max(0, prefs.get('verification_budget', 40)-len(missing))]
     checks = {}
     with ThreadPoolExecutor(max_workers=3) as pool:
         for checked in pool.map(verify_posting, candidates):
