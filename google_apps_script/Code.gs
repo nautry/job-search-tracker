@@ -238,10 +238,7 @@ function ageHours(value, now=new Date()) {
   return Number.isFinite(t) ? (now.getTime()-t)/3600000 : Infinity;
 }
 
-function deferred(row, now) {
-  const d = row[34] instanceof Date ? row[34] : new Date(row[34] || '');
-  return Number.isFinite(d.getTime()) && d.getTime() >= new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-}
+function deferred(row,now){const day=calendarDate(row[34]);return !!day&&day>=localDay(now);}
 
 function ready(row, now=new Date(), appliedIds=new Set()) {
   const related = String(row[29] || '').split(' | ');

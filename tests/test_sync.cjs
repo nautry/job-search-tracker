@@ -118,3 +118,10 @@ const hintRows=[{id:'pending',qualification_category:'Recommended'},{id:'done',q
 ctx.verifyUnapplied(ctx.SpreadsheetApp.getActiveSpreadsheet(),[pending,done],hintRows,8,now);
 assert.equal(checks,1);assert.equal(pending[23],'Recommended');assert.equal(done[0],'Applied');ctx.verifyHint=originalVerify;
 console.log('Practical workflow tests passed: default three / capacity five, local midnight, actual submission dates, private unapplied verification and chunked properties.');
+
+const localDefer=Object.assign(candidate('local-defer'),{34:46344});
+assert.equal(shortlist([localDefer],5,2,new Set(),.725,new Date('2026-11-19T04:30:00Z')).length,0);
+// Use the deferral helper directly at the local date boundary; verification age is independent.
+assert.equal(ctx.deferred(localDefer,new Date('2026-11-19T04:30:00Z')),true);
+assert.equal(ctx.deferred(localDefer,new Date('2026-11-19T05:00:00Z')),false);
+console.log('Deferral local-day boundary regression passed.');
