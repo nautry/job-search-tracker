@@ -34,13 +34,18 @@ def requisition(job):
 
 def deduplicate(previous, observed):
     """Collapse only proven identity in new observations; keep every historical record."""
-    old_keys = {(company_key(j), requisition(j)): j['id'] for j in previous}
+    def key_for(j):
+        provider=j['id'].split(':',1)[0]
+        return (company_key(j),provider,str(j.get('employer_requisition_id') or j.get('requisition_id') or j['id'].split(':',2)[-1]).casefold())
+    old_keys = {}
+    for j in previous:old_keys.setdefault(key_for(j), j['id'])
+    known_ids = {j['id'] for j in previous}
     result, positions = [], {}
     for raw in observed:
         j = {**raw, 'url': normalize_url(raw['url'])}
-        key = (company_key(j), requisition(j))
+        key = key_for(j)
         # Preserve the original stable ID even if source aliases/endpoint names change.
-        stable = old_keys.get(key, j['id'])
+        stable = j['id'] if j['id'] in known_ids else old_keys.get(key, j['id'])
         aliases = list(dict.fromkeys(j.get('aliases', []) + ([j['id']] if stable != j['id'] else [])))
         j = {**j, 'id': stable, 'aliases': aliases}
         if key in positions:
@@ -95,11 +100,12 @@ def hours_since(value, timestamp):
 def availability(previous, job, timestamp, seen, source):
     """Only explicit employer evidence closes a role. Missing feeds alone never close it."""
     out = {**previous, **job}
+    out['verification_version'] = 2
     if job.get('verification_result') == 'closed':
-        out.update(availability_state='Confirmed closed', availability_checked_at=timestamp,
+        out.update(availability_state='Confirmed closed', application_state='Confirmed closed', accepting_applications=False, availability_checked_at=timestamp,
                    verification_detail=job.get('verification_detail', 'Employer explicitly closed posting'))
     elif job.get('verification_result') == 'active':
-        out.update(availability_state='Verified active', last_confirmed_active=timestamp,
+        out.update(availability_state='Verified active', application_state='Verified accepting applications', accepting_applications=True, last_confirmed_active=timestamp,
                    availability_checked_at=timestamp, missing_full_runs=0)
     else:
         full = source.get('status') == 'ok' and source.get('full_board') is True
@@ -112,10 +118,13 @@ def availability(previous, job, timestamp, seen, source):
             out['availability_state'] = 'Confirmed closed'  # Reopening needs positive verification.
         elif job.get('verification_result') == 'unverified' or (not seen and full):
             out['availability_state'] = 'Unverified'
-        elif hours_since(out.get('last_confirmed_active'), timestamp) > 36:
+        elif not out.get('accepting_applications') or previous.get('verification_version') != 2 or hours_since(out.get('last_confirmed_active'), timestamp) > 72:
             out['availability_state'] = 'Stale' if out.get('last_confirmed_active') else 'Unverified'
         else:
             out['availability_state'] = 'Verified active'
+        if out['availability_state'] != 'Verified active':
+            out['accepting_applications'] = False
+            out['application_state'] = 'Confirmed closed' if out['availability_state']=='Confirmed closed' else 'Verification unavailable or inconclusive'
         if job.get('verification_result'):
             out['availability_checked_at'] = timestamp
     return out
@@ -127,4 +136,4 @@ def resume_variant(job):
         return 'Mechatronics'
     if re.search(r'test|validation|verification|r&d|research|performance|reliability', title):
         return 'Test/R&D'
-    return 'Mechanical Design'
+    return 'Design'

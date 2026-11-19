@@ -275,7 +275,11 @@
     ]
   },
   "defense_target": 0.725,
-  "daily_target": 5,
+  "daily_target": 3,
   "priority_queue_limit": 24,
-  "verification_budget": 40
+  "verification_budget": 40,
+  "daily_capacity": 5,
+  "decision_version": 2,
+  "verification_max_hours": 72,
+  "sheet_verification_budget": 8
 }

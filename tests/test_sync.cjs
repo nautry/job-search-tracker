@@ -11,11 +11,11 @@ const row=Array(35).fill('');row[26]='Verified active';row[27]=new Date();row[31
 assert.equal(indexRows([row]).get('a'),2);
 assert.throws(()=>indexRows([row,row]),/Duplicate/);
 assert.equal(shortlist([row]).length,0);
-row[0]='Not Applied';row[23]='Apply';assert.equal(shortlist([row]).length,1);
+row[0]='Not Applied';row[23]='Recommended';assert.equal(shortlist([row]).length,1);
 for (const status of ['Applied','Offer','Rejected','Not Interested','Interviewing','Withdrawn']) {
   assert.equal(shortlist([Object.assign([...row], {0: status})]).length, 0);
 }
-for (const category of ['Stretch','Review','']) {
+for (const category of ['Stretch','Hold','Closed','Duplicate','Ineligible','']) {
   assert.equal(shortlist([Object.assign([...row], {23: category})]).length, 0);
 }
 const offerFormula = statusFormula('Offer');
@@ -59,27 +59,27 @@ console.log('Sync tests passed: duplicate guards, shortlist, formula escaping, t
 
 // Real view generation, full-range offer formula, refill, stable daily assignments and exclusions.
 const now=new Date();
-const candidate=(id,company='Employer',priority=80)=>Object.assign([...row],{0:'Not Applied',4:company,8:'Austin metro',9:priority,15:id,23:'Apply',26:'Verified active',27:now,33:true,34:''});
+const candidate=(id,company='Employer',priority=80)=>Object.assign([...row],{0:'Not Applied',4:company,8:'Austin metro',9:priority,15:id,23:'Recommended',26:'Verified active',27:now,33:true,34:''});
 const candidates=Array.from({length:12},(_,i)=>candidate('id'+i,'Company '+Math.floor(i/2),100-i));
-const first=dailyModel(candidates,{}, {now});
+const first=dailyModel(candidates,{}, {now,target:5});
 assert.equal(first.daily.length,5);
 assert.equal(new Set(first.queue.map(r=>r[15])).size,first.queue.length);
 assert.ok(first.queue.every(r=>r[0]==='Not Applied'));
 const changed=candidates.map(r=>[...r]);changed[0][0]='Applied';
-const next=dailyModel(changed,first,{now});
+const next=dailyModel(changed,first,{now,target:5});
 assert.equal(next.daily.length,5);assert.ok(!next.ids.includes('id0'));
 assert.ok(first.ids.slice(1).every(id=>next.ids.includes(id)));
-assert.equal(shortlist([Object.assign(candidate('stale'),{27:new Date(Date.now()-48*3600000)})]).length,0);
+assert.equal(shortlist([Object.assign(candidate('stale'),{27:new Date(Date.now()-96*3600000)})]).length,0);
 assert.equal(shortlist([Object.assign(candidate('closed'),{26:'Confirmed closed'})]).length,0);
 assert.equal(shortlist([Object.assign(candidate('unverified'),{26:'Unverified'})]).length,0);
 assert.equal(shortlist([Object.assign(candidate('deferred'),{34:new Date(Date.now()+86400000)})]).length,0);
 assert.equal(shortlist([Object.assign(candidate('dup'),{30:'Possible repost / duplicate; distinct requisitions retained'})]).length,0);
 const prior=Object.assign(candidate('old'),{0:'Applied'}),repost=Object.assign(candidate('new'),{29:'old'});
 assert.equal(shortlist([prior,repost]).length,0);
-const review=Object.assign(candidate('review'),{23:'Review',24:'Start timing unverified'});
+const review=Object.assign(candidate('review'),{23:'Hold',24:'Start timing unverified'});
 assert.equal(dailyModel([review],{}, {now}).daily.length,0);
 assert.equal(dailyModel([review],{}, {now}).queue.length,1);
-assert.ok(dailyModel([review],{}, {now}).reason.includes('no quota padding'));
+assert.ok(dailyModel([review],{}, {now}).reason.length>0);assert.equal(dailyModel([review],{}, {now}).fallback.length,1);
 ctx.refreshDashboard(ctx.SpreadsheetApp.getActiveSpreadsheet(),sheets.Jobs.rows.slice(1),first);
 assert.equal(sheets['Daily Dashboard'].rows[3][7],statusFormula('Offer'));
 assert.ok(sheets['Daily Dashboard'].rows[3][1].includes('Jobs!B2:B'));
@@ -96,3 +96,25 @@ assert.equal(sheets['Daily Dashboard'].rows[16][3],'Offer');
 assert.equal(sheets['Daily Dashboard'].rows[16][4],datedFollowup[2]);
 assert.equal(sheets['Daily Dashboard'].rows[17][2],'Unknown');
 console.log('Follow-up employer publication date and unknown-date regressions passed.');
+// Date boundaries are America/Indianapolis, independently of feed refresh timestamps.
+assert.equal(ctx.module.exports.localDay(new Date('2026-11-19T04:59:59Z')),'2026-11-18');
+assert.equal(ctx.module.exports.localDay(new Date('2026-11-19T05:00:00Z')),'2026-11-19');
+const datedRows=Array.from({length:5},(_,i)=>Object.assign(candidate('dated-'+i),{0:'Applied',1:46344}));
+assert.equal(ctx.module.exports.submittedToday(datedRows,new Date('2026-11-19T04:30:00Z')),5);
+assert.equal(ctx.module.exports.submittedToday(datedRows,new Date('2026-11-19T12:00:00Z')),0);
+assert.ok(ctx.module.exports.todayFormula().includes('Jobs!B2:B'));
+assert.equal(dailyModel(candidates,{}, {now}).daily.length,3);
+assert.equal(dailyModel(candidates,{}, {now,target:5}).daily.length,5);
+const compact=new Map(), propertyApi={setProperty:(k,v)=>compact.set(k,v),getProperty:k=>compact.get(k)};
+const many=Array.from({length:700},(_,i)=>'greenhouse:employer:long-identifier-'+i);
+ctx.module.exports.saveChunks(propertyApi,'many',many);
+assert.ok([...compact.values()].every(v=>v.length<9000));
+assert.equal(ctx.module.exports.loadChunks(propertyApi,'many').length,700);
+// On-demand verification consumes only unapplied candidates, never submitted roles.
+let checks=0;const originalVerify=ctx.verifyHint;ctx.verifyHint=()=>{checks++;return {state:'Verified active',reason:'ATS application fields verified'}};
+const pending=Object.assign(candidate('pending'),{23:'Hold',26:'Unverified',27:''});
+const done=Object.assign(candidate('done'),{0:'Applied',26:'Unverified',27:''});
+const hintRows=[{id:'pending',qualification_category:'Recommended'},{id:'done',qualification_category:'Recommended'}];
+ctx.verifyUnapplied(ctx.SpreadsheetApp.getActiveSpreadsheet(),[pending,done],hintRows,8,now);
+assert.equal(checks,1);assert.equal(pending[23],'Recommended');assert.equal(done[0],'Applied');ctx.verifyHint=originalVerify;
+console.log('Practical workflow tests passed: default three / capacity five, local midnight, actual submission dates, private unapplied verification and chunked properties.');

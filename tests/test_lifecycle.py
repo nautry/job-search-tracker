@@ -28,10 +28,10 @@ class Lifecycle(unittest.TestCase):
         self.assertEqual(rows[0]['related_ids'],[b['id']]);self.assertIn('Possible repost',rows[0]['duplicate_state'])
         b['location']='Boston, MA';self.assertFalse(mark_related([a,b])[0]['related_ids'])
     def test_partial_failed_scoped_never_close(self):
-        old={**job(),'availability_state':'Verified active','last_confirmed_active':'2026-11-18T10:00:00Z'}
+        old={**job(),'availability_state':'Verified active','last_confirmed_active':'2026-11-18T10:00:00Z','verification_version':2,'accepting_applications':True}
         for source in [{'status':'failed','full_board':True},{'status':'partial','full_board':True},{'status':'ok','full_board':False}]:
             self.assertEqual(availability(old,{},'2026-11-18T12:00:00Z',False,source)['availability_state'],'Verified active')
-        self.assertEqual(availability(old,{},'2026-11-20T12:00:00Z',False,{'status':'failed'})['availability_state'],'Stale')
+        self.assertEqual(availability(old,{},'2026-11-22T12:00:00Z',False,{'status':'failed'})['availability_state'],'Stale')
     def test_missing_complete_board_uncertain_not_closed(self):
         source={'status':'ok','full_board':True}
         row=availability(job(),{},'2026-11-18T12:00:00Z',False,source)

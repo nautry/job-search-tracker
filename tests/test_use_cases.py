@@ -36,7 +36,7 @@ class UseCasePreferences(unittest.TestCase):
 
     def test_undergraduate_requirement_is_not_replaced_by_graduate_alternative(self):
         self.assertEqual(experience('Minimum 4 years of hardware product design experience with undergraduate degree, or minimum 2 years with graduate degree.'), 4)
-        self.assertEqual(assess({**self.job, 'description': 'Minimum 4 years of hardware product design experience with undergraduate degree, or minimum 2 years with graduate degree.'}, self.prefs)['category'], 'Review')
+        self.assertEqual(assess({**self.job, 'description': 'Minimum 4 years of hardware product design experience with undergraduate degree, or minimum 2 years with graduate degree.'}, self.prefs)['category'], 'Ineligible')
 
     def test_phd_alternative_does_not_hide_default_four_year_requirement(self):
         self.assertEqual(experience('4+ years of industry experience designing precision mechanical assemblies (or 1+ years with an PhD)'), 4)
@@ -49,7 +49,7 @@ class UseCasePreferences(unittest.TestCase):
         original = assess(self.job, self.prefs)
         earlier = assess({**self.job, 'title': 'Mechanical Engineer I - 2026 Graduate'}, self.prefs)
         self.assertLess(earlier['priority'], original['priority'])
-        self.assertIn('Start eligibility conflict', earlier['flags'])
+        self.assertIn('Posting explicitly conflicts', earlier['flags'])
 
     def test_policy_is_optional_and_configurable(self):
         self.assertEqual(use_case_fit(self.job, {})[1], 0)
