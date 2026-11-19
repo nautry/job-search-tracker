@@ -75,3 +75,8 @@ class RequirementParsing(unittest.TestCase):
         self.assertEqual(experience('Requires 2 years of professional experience. Python preferred.'),2)
         self.assertEqual(experience('Requires 2 years of professional experience; Python preferred.'),2)
         self.assertEqual(experience('Requires 2 years of experience, Python preferred.'),2)
+
+    def test_written_years_and_zero_to_two_ranges(self):
+        self.assertEqual(experience('Requires two years of professional experience.'),2)
+        self.assertEqual(experience('Requires three years of engineering experience.'),3)
+        self.assertEqual(experience('Requires zero to two years of relevant experience.'),0)

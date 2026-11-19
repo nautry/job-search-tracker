@@ -60,6 +60,8 @@ def location_fit(location, prefs):
 
 def experience(text):
     """Extract requirements conservatively; preferred experience does not exclude."""
+    words={"zero":"0","one":"1","two":"2","three":"3","four":"4","five":"5","six":"6","seven":"7","eight":"8","nine":"9","ten":"10"}
+    text=re.sub(r"\b("+"|".join(words)+r")\b",lambda m:words[m.group(0).lower()],text,flags=re.I).replace("-to-"," to ")
     chunks = re.split(r"(?<=[.!?;])\s+|[\n\r]", text)
     minimums = []
     for chunk in chunks:
@@ -73,11 +75,11 @@ def experience(text):
             bachelor_clauses = [c for c in clauses if re.search(degree_pattern, c, re.I)]
             candidates = bachelor_clauses or [c for c in clauses if not re.search(r"master|ph\.?d|doctor|graduate degree", c, re.I)]
             for candidate in candidates:
-                requirement = re.search(r"\b(\d{1,2})(?:\s*[-–]\s*\d{1,2})?\s*\+?\s*years?\b", candidate, re.I)
+                requirement = re.search(r"\b(\d{1,2})(?:\s*(?:[-–]|to)\s*\d{1,2})?\s*\+?\s*years?\b", candidate, re.I)
                 if requirement:
                     minimums.append(int(requirement.group(1)))
             continue
-        for m in re.finditer(r"\b(\d{1,2})(?:\s*[-–]\s*\d{1,2})?\s*\+?\s*years?\s+(?:of\s+)?(?:(?:[A-Za-z/-]+)\s+){0,8}experience", chunk, re.I):
+        for m in re.finditer(r"\b(\d{1,2})(?:\s*(?:[-–]|to)\s*\d{1,2})?\s*\+?\s*years?\s+(?:of\s+)?(?:(?:[A-Za-z/-]+)\s+){0,8}experience", chunk, re.I):
             if not re.match(r"\s*(?:\w+\s+){0,2}(?:preferred|desirable)\b",chunk[m.end():],re.I):
                 minimums.append(int(m.group(1)))
     return max(minimums) if minimums else None
@@ -187,7 +189,7 @@ def assess(job, prefs):
     return {k: v for k, v in {
         **job, **assessment, **identity_evidence(job), "requisition_id": str(job.get("requisition_id") or job["id"].split(":", 2)[-1]), "resume_variant": resume_variant(job), "use_case": use_case, "use_case_adjustment": 0,
         "role_score": score, "priority": round(max(0, min(100, priority)), 1),
-        "location_fit": geo, "experience": f"{years}+ years (parsed)" if years is not None else "Review posting",
+        "location_fit": geo, "experience": f"{years}+ years required (parsed)" if years is not None else "Early-career wording; numeric minimum not extracted" if assessment["screening_evidence"]["entry_signal"] else "Experience level unresolved by automatic screening",
         "salary": salary, "flags": "; ".join(flags), "evidence": "; ".join(evidence),
         "posting_age": age, "recency_points": freshness * weights["freshness"],
     }.items() if k != "description"}
