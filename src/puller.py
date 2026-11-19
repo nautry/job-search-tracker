@@ -281,7 +281,7 @@ def collect(board):
             break
         try:
             d = get_json(api + path)["jobPostingInfo"]
-            jobs.append(canonical(board, d.get("jobReqId") or path.rsplit("_", 1)[-1], d.get("title", j["title"]), d.get("location", j.get("locationsText", "")), f"https://{board['host']}/en-US/{board['site']}{path}", d.get("jobDescription", ""), employment_type=d.get("timeType", ""), posted_at=d.get("datePosted", ""), employer_updated_at=d.get("postedOn", ""), detail_api=api + path, verification_result="closed" if d.get("canApply") is False else "unverified", employer_requisition_id=d.get("jobReqId"), verification_detail="Official Workday detail retrieved; application link check pending"))
+            jobs.append(canonical(board, d.get("jobReqId") or path.rsplit("_", 1)[-1], d.get("title", j["title"]), d.get("location", j.get("locationsText", "")), f"https://{board['host']}/en-US/{board['site']}{path}", d.get("jobDescription", ""), employment_type=d.get("timeType", ""), posted_at=d.get("datePosted", ""), employer_updated_at=d.get("postedOn", ""), detail_api=api + path, verification_result="closed" if d.get("canApply") is False else "", employer_requisition_id=d.get("jobReqId"), verification_detail="Official Workday detail retrieved; application link check pending"))
             time.sleep(0.2)
         except (urllib.error.URLError, ValueError, KeyError) as e:
             complete = False
@@ -378,6 +378,8 @@ def reconcile(previous, observed, health, timestamp):
     for j in deduplicate(previous, observed):
         seen.add(j['id'])
         historical = old.get(j['id'], {})
+        if not j.get('verification_result'):
+            j.pop('verification_result',None);j.pop('verification_detail',None)
         prior_date = historical.get('posted_at')
         if prior_date and posting_age(prior_date) is not None and (not j.get('posted_at') or str(prior_date) < str(j['posted_at'])):
             j['employer_latest_publication'] = j.get('posted_at', '')

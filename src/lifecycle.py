@@ -114,10 +114,10 @@ def availability(previous, job, timestamp, seen, source):
     out['verification_version'] = 2
     if job.get('verification_result') == 'closed':
         out.update(availability_state='Confirmed closed', application_state='Confirmed closed', accepting_applications=False, availability_checked_at=timestamp,
-                   verification_detail=job.get('verification_detail', 'Employer explicitly closed posting'))
+                   verification_detail=job.get('verification_detail', 'Employer explicitly closed posting'), closure_evidence=job.get('verification_detail', 'Employer explicitly closed posting'))
     elif job.get('verification_result') == 'active':
         out.update(availability_state='Verified active', application_state='Verified accepting applications', accepting_applications=True, last_confirmed_active=timestamp,
-                   availability_checked_at=timestamp, missing_full_runs=0)
+                   availability_checked_at=timestamp, missing_full_runs=0, closure_evidence='')
     else:
         full = source.get('status') == 'ok' and source.get('full_board') is True
         misses = previous.get('missing_full_runs', 0)
@@ -125,7 +125,7 @@ def availability(previous, job, timestamp, seen, source):
             misses += 1
             out['missing_checked_at'] = timestamp
         out['missing_full_runs'] = misses
-        if previous.get('availability_state') == 'Confirmed closed':
+        if previous.get('availability_state') == 'Confirmed closed' and previous.get('closure_evidence'):
             out['availability_state'] = 'Confirmed closed'  # Reopening needs positive verification.
         elif job.get('verification_result') == 'unverified' or (not seen and full):
             out['availability_state'] = 'Unverified'

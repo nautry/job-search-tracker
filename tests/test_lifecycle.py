@@ -38,7 +38,7 @@ class Lifecycle(unittest.TestCase):
         self.assertEqual(row['availability_state'],'Unverified');self.assertEqual(row['missing_full_runs'],1)
         self.assertEqual(availability(row,{},'2026-11-18T13:00:00Z',False,source)['missing_full_runs'],1)
     def test_closed_reopening_requires_positive_check(self):
-        old={**job(),'availability_state':'Confirmed closed'}
+        old={**job(),'availability_state':'Confirmed closed','closure_evidence':'Official ATS explicitly disabled applications'}
         self.assertEqual(availability(old,job(),'2026-11-18T12:00:00Z',True,{})['availability_state'],'Confirmed closed')
         self.assertEqual(availability(old,{**job(),'verification_result':'active'},'2026-11-18T12:00:00Z',True,{})['availability_state'],'Verified active')
     def test_inaccessible_and_removed_links(self):
@@ -56,7 +56,7 @@ class Lifecycle(unittest.TestCase):
         with patch('src.puller.get_json',return_value={'id':1,'content':'CAD'}),patch('src.puller.urllib.request.urlopen',return_value=Response()):
             self.assertEqual(verify_posting(job(observed_this_run=True))['verification_result'],'closed')
     def test_history_retained(self):
-        old={**job(),'first_seen':'2025-01-01','last_seen':'2025-01-02','availability_state':'Confirmed closed'}
+        old={**job(),'first_seen':'2025-01-01','last_seen':'2025-01-02','availability_state':'Confirmed closed','closure_evidence':'Official ATS explicitly disabled applications'}
         row=reconcile([old],[],[{'source':'test','status':'failed'}],'2026-11-18T12:00:00Z')[0]
         self.assertEqual(row['first_seen'],'2025-01-01');self.assertEqual(row['last_seen'],'2025-01-02')
         self.assertEqual(row['availability_state'],'Confirmed closed')
@@ -80,3 +80,15 @@ class Lifecycle(unittest.TestCase):
         self.assertIn(b['id'],linked[0]['related_ids'])
     def test_different_provider_namespaces_not_same_numeric_id(self):
         self.assertEqual(len(deduplicate([],[job(),job('lever:test:1')])),2)
+
+    def test_weak_legacy_closure_is_not_automatically_certified(self):
+        old={**job(),'availability_state':'Confirmed closed'}
+        row=availability(old,{},'2026-11-19T22:00:00Z',True,{'status':'ok'})
+        self.assertEqual(row['availability_state'],'Unverified')
+    def test_unchecked_workday_detail_preserves_recent_strong_evidence(self):
+        from src.puller import reconcile
+        old={**job('workday:test:R1'),'verification_version':2,'availability_state':'Verified active','accepting_applications':True,'last_confirmed_active':'2026-11-19T20:00:00Z','qualification_category':'Recommended','verification_detail':'Workday canApply=true and usable URL'}
+        observed={**job('workday:test:R1'),'verification_result':'','verification_detail':'URL check pending'}
+        row=reconcile([old],[observed],[{'source':'test','status':'partial'}],'2026-11-19T22:00:00Z')[0]
+        self.assertEqual(row['availability_state'],'Verified active')
+        self.assertIn('canApply=true',row['verification_detail'])
