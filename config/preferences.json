@@ -274,5 +274,8 @@
       "\\bV.BAT\\b"
     ]
   },
-  "defense_target": 0.725
+  "defense_target": 0.725,
+  "daily_target": 5,
+  "priority_queue_limit": 24,
+  "verification_budget": 40
 }

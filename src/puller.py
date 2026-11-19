@@ -11,10 +11,13 @@ import re
 import time
 import urllib.error
 import urllib.request
+from urllib.parse import urlsplit
 if __package__:
     from .eligibility import assess_eligibility, posting_age, recency_points
+    from .lifecycle import normalize_url, identity_evidence, deduplicate, mark_related, availability, resume_variant, hours_since
 else:
     from eligibility import assess_eligibility, posting_age, recency_points
+    from lifecycle import normalize_url, identity_evidence, deduplicate, mark_related, availability, resume_variant, hours_since
 
 ROOT = Path(__file__).resolve().parents[1]
 HEADERS = {"User-Agent": "PublicJobTracker/1.0", "Accept": "application/json"}
@@ -181,7 +184,7 @@ def assess(job, prefs):
     flags.extend(["Employer publication date unavailable"] if age is None else
                  ["Posting over 45 days old; verify availability"] if age > 45 else [])
     return {k: v for k, v in {
-        **job, **assessment, "use_case": use_case, "use_case_adjustment": 0,
+        **job, **assessment, **identity_evidence(job), "requisition_id": str(job.get("requisition_id") or job["id"].split(":", 2)[-1]), "resume_variant": resume_variant(job), "queue_eligible": bool(not re.search(r"manufacturing|production|process|industrial|tooling|factory automation|equipment engineer|quality engineer|intern|co.op|contract", title, re.I) and (years is None or years < 3) and not assessment["start_eligibility"].startswith("Start eligibility conflict") and not geo.startswith(("Location review", "Deprioritized"))), "use_case": use_case, "use_case_adjustment": 0,
         "role_score": score, "priority": round(max(0, min(100, priority)), 1),
         "location_fit": geo, "experience": f"{years}+ years (parsed)" if years is not None else "Review posting",
         "salary": salary, "flags": "; ".join(flags), "evidence": "; ".join(evidence),
@@ -192,7 +195,7 @@ def assess(job, prefs):
 def canonical(board, raw_id, title, location, url, description, **extra):
     if not re.match(r"https://", url or ""):
         raise ValueError("Missing HTTPS posting URL")
-    return {"id": f"{board['provider']}:{board['slug']}:{raw_id}", "source": board["slug"], "company": board["company"], "title": title, "location": location or "Location not supplied", "url": url, "description": plain(description), "use_case_sector": board.get("use_case_sector", "unknown"), **extra}
+    return {"id": f"{board['provider']}:{board['slug']}:{raw_id}", "source": board["slug"], "company": board["company"], "title": title, "location": location or "Location not supplied", "url": normalize_url(url), "description": plain(description), "use_case_sector": board.get("use_case_sector", "unknown"), **extra}
 
 
 def collect(board):
@@ -277,7 +280,7 @@ def collect(board):
             break
         try:
             d = get_json(api + path)["jobPostingInfo"]
-            jobs.append(canonical(board, d.get("jobReqId") or path.rsplit("_", 1)[-1], d.get("title", j["title"]), d.get("location", j.get("locationsText", "")), f"https://{board['host']}/en-US/{board['site']}{path}", d.get("jobDescription", ""), employment_type=d.get("timeType", "")))
+            jobs.append(canonical(board, d.get("jobReqId") or path.rsplit("_", 1)[-1], d.get("title", j["title"]), d.get("location", j.get("locationsText", "")), f"https://{board['host']}/en-US/{board['site']}{path}", d.get("jobDescription", ""), employment_type=d.get("timeType", ""), posted_at=d.get("datePosted", ""), employer_updated_at=d.get("postedOn", ""), detail_api=api + path, verification_result="closed" if d.get("canApply") is False else "unverified", verification_detail="Official Workday detail retrieved; application link check pending"))
             time.sleep(0.2)
         except (urllib.error.URLError, ValueError, KeyError) as e:
             complete = False
@@ -287,18 +290,69 @@ def collect(board):
     return jobs, complete, errors
 
 
+def verify_posting(job):
+    """Check official ATS identity and employer URL. HTTP 403/429 is uncertainty, never closure."""
+    parsed = urlsplit(job['url'])
+    allowed = ("greenhouse.io", "lever.co", "ashbyhq.com", "myworkdayjobs.com", "smartrecruiters.com")
+    if parsed.scheme != 'https' or not any(parsed.hostname == h or (parsed.hostname or '').endswith('.' + h) for h in allowed):
+        return {**job, 'verification_result': 'unverified', 'verification_detail': 'Unsupported employer host; manual verification needed'}
+    provider, slug, req = job['id'].split(':', 2)
+    req = str(job.get('requisition_id') or req)
+    try:
+        if provider == 'greenhouse':
+            detail = get_json(f'https://boards-api.greenhouse.io/v1/boards/{slug}/jobs/{req}')
+            if str(detail.get('id')) != req or not detail.get('content'):
+                return {**job, 'verification_result': 'unverified', 'verification_detail': 'ATS detail identity/content could not be confirmed'}
+        elif provider == 'lever':
+            detail = get_json(f'https://api.lever.co/v0/postings/{slug}/{req}')
+            if str(detail.get('id')) != req:
+                return {**job, 'verification_result': 'unverified', 'verification_detail': 'ATS detail identity unconfirmed'}
+        elif provider == 'workday' and job.get('detail_api'):
+            detail = get_json(job['detail_api']).get('jobPostingInfo', {})
+            if not detail or detail.get('canApply') is False:
+                return {**job, 'verification_result': 'closed' if detail.get('canApply') is False else 'unverified', 'verification_detail': 'Workday application disabled or detail missing'}
+        req_http = urllib.request.Request(job['url'], headers={**HEADERS, 'Accept': 'text/html'})
+        with urllib.request.urlopen(req_http, timeout=25) as response:
+            body = response.read(1500000).decode('utf-8', errors='replace')
+            final_host = urlsplit(response.url).hostname or ''
+            if not any(final_host == h or final_host.endswith('.' + h) for h in allowed):
+                return {**job, 'verification_result': 'unverified', 'verification_detail': 'Employer URL redirected outside supported ATS'}
+        text = plain(body)
+        closed = re.search(r"this (?:job|position|posting|role) (?:is |has been )?(?:no longer available|no longer accepting applications|closed|removed|filled|expired)|job (?:has been |is )closed|job you.{0,20}looking for.{0,30}(?:no longer|not available)", text, re.I)
+        if closed:
+            return {**job, 'verification_result': 'closed', 'verification_detail': 'Employer URL explicitly reports closure: ' + closed.group(0)}
+        # Positive listing evidence comes from this run's official ATS collection, not just HTTP 200.
+        if not job.get('observed_this_run'):
+            return {**job, 'verification_result': 'unverified', 'verification_detail': 'URL responds, but listing not positively listed in this collection'}
+        return {**job, 'verification_result': 'active', 'verification_detail': 'Official ATS currently lists requisition; employer URL returned HTTP 200 without explicit closure. Interview activity unknown.'}
+    except urllib.error.HTTPError as e:
+        return {**job, 'verification_result': 'closed' if e.code in (404, 410) else 'unverified', 'verification_detail': f'Employer ATS/link HTTP {e.code}; ' + ('posting unavailable' if e.code in (404, 410) else 'access could not be verified')}
+    except (urllib.error.URLError, ValueError, OSError) as e:
+        return {**job, 'verification_result': 'unverified', 'verification_detail': 'Employer check inaccessible: ' + str(e)[:160]}
+
+
 def reconcile(previous, observed, health, timestamp):
-    old = {j["id"]: j for j in previous}
+    old = {j['id']: j for j in previous}
     merged = dict(old)
-    states = {s["source"]: s["status"] for s in health}
+    sources = {s['source']: s for s in health}
     seen = set()
-    for j in observed:
-        seen.add(j["id"])
-        merged[j["id"]] = {**j, "first_seen": old.get(j["id"], {}).get("first_seen", timestamp), "last_seen": timestamp, "availability": "Seen in latest search"}
+    for j in deduplicate(previous, observed):
+        seen.add(j['id'])
+        historical = old.get(j['id'], {})
+        prior_date = historical.get('posted_at')
+        if prior_date and posting_age(prior_date) is not None and (not j.get('posted_at') or str(prior_date) < str(j['posted_at'])):
+            j['employer_latest_publication'] = j.get('posted_at', '')
+            j['posted_at'] = prior_date
+        row = {**j, 'first_seen': historical.get('first_seen', timestamp), 'last_seen': timestamp,
+               'availability': 'Seen in latest search'}
+        merged[j['id']] = availability(historical, row, timestamp, True, sources.get(j['source'], {}))
     for key, j in list(merged.items()):
         if key not in seen:
-            merged[key] = {**j, "availability": "Not seen in latest complete search" if states.get(j["source"]) == "ok" else "Source incomplete / unavailable; retained"}
-    return sorted(merged.values(), key=lambda j: (-j["priority"], j["company"], j["id"]))
+            source = sources.get(j['source'], {})
+            row = availability(j, {}, timestamp, False, source)
+            row['availability'] = 'Not seen in latest complete search' if source.get('status') == 'ok' else 'Source incomplete / unavailable; retained'
+            merged[key] = row
+    return sorted(mark_related(list(merged.values())), key=lambda j: (-j['priority'], j['company'], j['id']))
 
 
 def run(root=ROOT):
@@ -315,21 +369,41 @@ def run(root=ROOT):
             try:
                 raw, complete, errors = f.result()
                 matching = [x for j in raw if (x := assess(j, prefs)) is not None]
-                observed.extend(matching)
+                observed.extend({**j, "observed_this_run": True} for j in matching)
                 state = "ok" if complete else ("partial" if raw else "failed")
                 detail = "; ".join(errors)[:1500]
             except Exception as e:
                 raw, matching, state, detail = [], [], "failed", f"{type(e).__name__}: {e}"
-            health.append({"source": b["slug"], "company": b["company"], "status": state, "scope": "Keyword search with page/detail caps" if b["provider"] == "workday" else "Paginated board; US hardware-title prefilter" if b["provider"] == "smartrecruiters" else "Full public board", "collected": len(raw), "matched": len(matching), "checked_at": timestamp, "error": detail, "careers_url": b["careers_url"], "context": b["context"]})
+            health.append({"source": b["slug"], "full_board": b["provider"] in ("greenhouse", "ashby", "lever") and state == "ok", "company": b["company"], "status": state, "scope": "Keyword search with page/detail caps" if b["provider"] == "workday" else "Paginated board; US hardware-title prefilter" if b["provider"] == "smartrecruiters" else "Full public board", "collected": len(raw), "matched": len(matching), "checked_at": timestamp, "error": detail, "careers_url": b["careers_url"], "context": b["context"]})
             print(f"{b['company']}: {state}; {len(raw)} collected; {len(matching)} matches", flush=True)
+    # Budgeted URL checks favor actual queue candidates. Unchecked listings remain unverified.
+    missing = sorted((j for j in previous if j.get('category') in ('Apply', 'Stretch') and j['id'] not in {r['id'] for r in observed}), key=lambda j: -j['priority'])[:8]
+    candidates = sorted((j for j in observed if j.get('queue_eligible')), key=lambda j: ({'Apply': 0, 'Stretch': 1, 'Review': 2}[j['category']], -j['priority'], j['id']))[:max(0, prefs.get('verification_budget', 40)-len(missing))]
+    checks = {}
+    with ThreadPoolExecutor(max_workers=3) as pool:
+        for checked in pool.map(verify_posting, candidates):
+            checks[checked['id']] = checked
+    observed = [checks.get(j['id'], j) for j in observed]
     jobs = reconcile(previous, observed, health, timestamp)
-    feed = {"schema_version": 1, "generated_at": timestamp, "source_status": sorted(health, key=lambda x: x["company"]), "jobs": jobs, "preferences": {k: prefs[k] for k in ['shortlist_limit','shortlist_per_company','stale_after_hours','defense_target'] if k in prefs}, "config_hash": hashlib.sha256(json.dumps({'preferences':prefs,'boards':boards},sort_keys=True).encode()).hexdigest()}
+    for j in missing:
+        checked = verify_posting({**j, 'observed_this_run': False})
+        for i, row in enumerate(jobs):
+            if row['id'] == j['id']:
+                jobs[i] = availability(row, {k: checked[k] for k in ['verification_result', 'verification_detail']}, timestamp, False, {})
+                break
+    for j in jobs:
+        j.pop('observed_this_run', None)
+        j['posting_age'] = posting_age(j.get('posted_at'))
+    counts = {state: sum(j.get('availability_state') == state for j in jobs) for state in ['Verified active', 'Unverified', 'Stale', 'Confirmed closed']}
+    counts['suspected_duplicate_records'] = sum(bool(j.get('related_ids')) for j in jobs)
+    counts['exact_observations_collapsed'] = sum(j.get('exact_duplicates_collapsed', 0) for j in jobs)
+    feed = {"schema_version": 1, "generated_at": timestamp, "source_status": sorted(health, key=lambda x: x["company"]), "jobs": jobs, "availability_summary": counts, "preferences": {k: prefs[k] for k in ['shortlist_limit','shortlist_per_company','stale_after_hours','defense_target','daily_target','priority_queue_limit','verification_budget'] if k in prefs}, "config_hash": hashlib.sha256(json.dumps({'preferences':prefs,'boards':boards},sort_keys=True).encode()).hexdigest()}
     output.parent.mkdir(parents=True, exist_ok=True)
     tmp = output.with_suffix(".tmp")
     tmp.write_text(json.dumps(feed, ensure_ascii=False, separators=(",", ":")) + "\n")
     tmp.replace(output)
     with output.with_suffix(".csv").open("w", newline="") as f:
-        fields = ["id", "company", "title", "location", "role_score", "location_fit", "priority", "experience", "salary", "flags", "evidence", "url", "source", "first_seen", "last_seen", "availability", "posted_at", "posting_age", "recency_points", "category", "start_eligibility", "fit_reason", "defense"]
+        fields = ["id", "company", "title", "location", "role_score", "location_fit", "priority", "experience", "salary", "flags", "evidence", "url", "source", "first_seen", "last_seen", "availability", "posted_at", "posting_age", "recency_points", "category", "start_eligibility", "fit_reason", "defense", "availability_state", "last_confirmed_active", "availability_checked_at", "verification_detail", "duplicate_state", "related_ids", "resume_variant", "queue_eligible"]
         w = csv.DictWriter(f, fieldnames=fields, extrasaction="ignore")
         w.writeheader()
         for j in jobs:

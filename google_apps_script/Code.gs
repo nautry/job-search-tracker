@@ -1,16 +1,16 @@
 /** @OnlyCurrentDoc */
 /* Bound to your tracker: Extensions > Apps Script. No credentials in source. */
-const HEADERS = ['Status','Applied date','Follow-up','Notes','Company','Job title','Location','Role fit','Location fit','Priority','Experience','Salary','Flags','Why match','Link','Job ID','Availability','First seen','Last seen','Source','Employer posted','Posting age (days)','Recency points','Recommendation','May 2027 eligibility','Fit reason'];
+const HEADERS = ['Status','Applied date','Follow-up','Notes','Company','Job title','Location','Role fit','Location fit','Priority','Experience','Salary','Flags','Why match','Link','Job ID','Availability','First seen','Last seen','Source','Employer posted','Posting age (days)','Recency points','Recommendation','May 2027 eligibility','Fit reason','Availability state','Active confirmed','Verification detail','Related posting IDs','Duplicate review','Resume variant','Verified at','Queue eligible','Deferred until'];
 const STATUSES = ['Not Applied','Applied','Interviewing','Offer','Rejected','Not Interested','Withdrawn'];
-const QUEUE_HEADERS = ['Recommendation','Company','Job title','Location','Employer posted','Experience','May 2027 eligibility','Priority','Why it fits','Jobs row'];
+const QUEUE_HEADERS = ['Assignment','Recommendation','Company','Job / employer link','Location','Priority','Employer posted','Experience / May 2027 eligibility','Availability / duplicate check','Resume','Reason / next check','Record'];
 const SOURCE_HEADERS = ['Company','Status','Collected','Matched','Checked at','Scope','Error','Careers URL','Context'];
 
 function onOpen() {
-  SpreadsheetApp.getUi().createMenu('Job search').addItem('Refresh jobs','syncJobs').addItem('Refresh shortlist','refreshViews').addItem('Set up daily refresh','installDailyTrigger').addToUi();
+  SpreadsheetApp.getUi().createMenu('Job search').addItem('Refresh jobs','syncJobs').addItem('Refresh dashboard / refill','refreshViews').addItem('Set up daily refresh','installDailyTrigger').addToUi();
 }
 
 function onEdit(e) {
-  if (!e || e.range.getSheet().getName() !== 'Jobs' || e.range.getColumn() > 4 || e.range.getLastRow() < 2) return;
+  if (!e || e.range.getSheet().getName() !== 'Jobs' || (e.range.getColumn() > 4 && e.range.getColumn() !== 35) || e.range.getLastRow() < 2) return;
   const lock = LockService.getDocumentLock();
   if (!lock.tryLock(500)) return;
   try { refreshViews(); } finally { lock.releaseLock(); }
@@ -30,7 +30,7 @@ function autoFields(j) {
     postingDate(j.posted_at), j.posting_age ?? 'Unknown', Number(j.recency_points || 0),
     ['Apply','Stretch'].includes(j.category) ? j.category : 'Review',
     textCell(j.start_eligibility || 'Start timing unverified'),
-    textCell(j.fit_reason || 'Employer requirements need review')];
+    textCell(j.fit_reason || 'Employer requirements need review'), textCell(j.availability_state || 'Unverified'), postingDate(j.last_confirmed_active), textCell(j.verification_detail || 'Employer URL not verified'), textCell((j.related_ids || []).join(' | ')), textCell(j.duplicate_state || ''), textCell(j.resume_variant || 'Mechanical Design'), postingDate(j.availability_checked_at), j.queue_eligible === true];
 }
 
 function postingDate(value) {
@@ -63,6 +63,7 @@ function syncJobs() {
   lock.waitLock(30000);
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
+    if(ss.setSpreadsheetTimeZone)ss.setSpreadsheetTimeZone('America/Indianapolis');
     const cfg = ss.getSheetByName('Settings');
     const feedUrl = String(cfg.getRange('B2').getValue()).trim();
     if (!/^https:\/\/raw\.githubusercontent\.com\//.test(feedUrl)) throw new Error('Set Settings!B2 to your raw GitHub data/jobs.json URL.');
@@ -73,6 +74,7 @@ function syncJobs() {
     const maxAge = Number(feed.preferences && feed.preferences.stale_after_hours) || 36;
     if (Date.now()-Date.parse(feed.generated_at)>maxAge*3600000) throw new Error('Feed is stale. Run the GitHub collector first. Existing jobs were preserved.');
     const sh = ss.getSheetByName('Jobs');
+    if (sh.getMaxColumns() < HEADERS.length) sh.insertColumnsAfter(sh.getMaxColumns(), HEADERS.length-sh.getMaxColumns());
     const existing = sh.getRange(1, 1, 1, HEADERS.length).getValues()[0];
     if (existing.some((value, i) => i < 20 ? value !== HEADERS[i] : value && value !== HEADERS[i])) {
       throw new Error('Unexpected Jobs headers. Restore the expected headers before sync.');
@@ -91,7 +93,7 @@ function syncJobs() {
     let start = 0;
     let batch = [];
     const flush = () => {
-      if (batch.length) sh.getRange(start, 5, batch.length, HEADERS.length - 4).setValues(batch);
+      if (batch.length) sh.getRange(start, 5, batch.length, HEADERS.length - 5).setValues(batch);
       batch = [];
     };
     rows.forEach((row, i) => {
@@ -113,8 +115,11 @@ function syncJobs() {
     flush();
     if (newJobs.length) {
       sh.getRange(lastExisting + 1, 1, newJobs.length, HEADERS.length)
-        .setValues(newJobs.map(j => ['Not Applied', '', '', '', ...autoFields(j)]));
+        .setValues(newJobs.map(j => ['Not Applied', '', '', '', ...autoFields(j), '']));
     }
+    sh.getRange(2,35,last-1,1).setNumberFormat('mm/dd/yy');
+    sh.getRange(2,28,last-1,1).setNumberFormat('mmm d, yyyy hh:mm');
+    sh.getRange(2,33,last-1,1).setNumberFormat('mmm d, yyyy hh:mm');
     sh.getRange(2,1,last-1,1).setDataValidation(SpreadsheetApp.newDataValidation().requireValueInList(STATUSES,true).setAllowInvalid(false).build());
     sh.getRange(2,2,last-1,2).setNumberFormat('mm/dd/yy');
     sh.getRange(2,18,last-1,2).setNumberFormat('mm/dd/yy');
@@ -123,11 +128,15 @@ function syncJobs() {
     writeSourceStatus(ss, values);
     cfg.getRange('B3').setValue(new Date(feed.generated_at));
     cfg.getRange('B4').setValue(new Date());
+    cfg.getRange('B25').setValue('Daily Dashboard script installed; sync verified '+new Date().toISOString());
+    cfg.getRange('B28').setValue('Current bound script active; existing syncJobs trigger reused.');
     cfg.getRange('B5').setValue('Sync succeeded; '+feed.jobs.length+' feed jobs; '+feed.source_status.filter(s=>s.status!=='ok').length+' sources need review');
     PropertiesService.getDocumentProperties().setProperty('shortlistLimit', String(Number(feed.preferences && feed.preferences.shortlist_limit)||12));
     PropertiesService.getDocumentProperties().setProperty('shortlistPerCompany', String(Number(feed.preferences && feed.preferences.shortlist_per_company)||2));
     PropertiesService.getDocumentProperties().setProperty('defenseTarget', String(Number(feed.preferences && feed.preferences.defense_target)||0.725));
     PropertiesService.getDocumentProperties().setProperty('defenseIds', JSON.stringify(feed.jobs.filter(j => j.defense).map(j => j.id)));
+    PropertiesService.getDocumentProperties().setProperty('priorityQueueLimit', String(feed.preferences?.priority_queue_limit || 24));
+    PropertiesService.getDocumentProperties().setProperty('dailyTarget', String(feed.preferences?.daily_target || 5));
     refreshViews();
   } catch(e) {
     SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Settings').getRange('B5').setValue('Sync failed: '+e.message);
@@ -170,31 +179,70 @@ function writeSourceStatus(ss, values) {
   }
 }
 
-function shortlist(rows, limit=12, perCompany=2, defenseIds=new Set(), defenseTarget=0.725) {
-  limit = Math.min(12, Math.max(0, limit));
-  const candidates = rows.filter(r => r[15] && r[0] === 'Not Applied' && r[23] === 'Apply' &&
-    r[16] === 'Seen in latest search' && !/Deprioritized|Location review/.test(r[8]))
-    .sort((a, b) => b[9] - a[9] || String(a[15]).localeCompare(String(b[15])));
-  const selected = [];
-  const counts = new Map();
-  function add(row) {
-    const n = counts.get(row[4]) || 0;
-    if (selected.length >= limit || selected.includes(row) || n >= perCompany) return false;
-    selected.push(row);
-    counts.set(row[4], n + 1);
-    return true;
+function ageHours(value, now=new Date()) {
+  const t = value instanceof Date ? value.getTime() : Date.parse(value || '');
+  return Number.isFinite(t) ? (now.getTime()-t)/3600000 : Infinity;
+}
+
+function deferred(row, now) {
+  const d = row[34] instanceof Date ? row[34] : new Date(row[34] || '');
+  return Number.isFinite(d.getTime()) && d.getTime() >= new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+}
+
+function ready(row, now=new Date(), appliedIds=new Set()) {
+  const related = String(row[29] || '').split(' | ');
+  return row[0] === 'Not Applied' && row[33] === true && Number(row[9]) >= 55 && row[23] === 'Apply' && row[26] === 'Verified active' &&
+    ageHours(row[27], now) <= 36 && ageHours(row[27], now) >= -1 && row[16] === 'Seen in latest search' &&
+    !/Deprioritized|Location review/.test(row[8]) && !deferred(row, now) &&
+    !related.some(id => appliedIds.has(id)) && !/Possible repost|Exact requisition alias/.test(row[30]);
+}
+
+function queueCandidates(rows, now=new Date()) {
+  return rows.filter(r => r[15] && r[0] === 'Not Applied' && r[33] === true &&
+    r[26] !== 'Confirmed closed' && !deferred(r, now) && !/Deprioritized|Location review/.test(r[8]) &&
+    Number(r[9]) >= 55).sort((a,b) => {
+      const rank = r => ready(r, now) ? 0 : r[23] === 'Stretch' ? 1 : 2;
+      return rank(a)-rank(b) || b[9]-a[9] || String(a[15]).localeCompare(String(b[15]));
+    });
+}
+
+function shortlist(rows, limit=5, perCompany=2, defenseIds=new Set(), defenseTarget=.725, now=new Date()) {
+  const applied = new Set(rows.filter(r => r[0] !== 'Not Applied').map(r => String(r[15])));
+  const candidates = rows.filter(r => ready(r, now, applied)).sort((a,b) => b[9]-a[9] || String(a[15]).localeCompare(String(b[15])));
+  const selected=[], counts=new Map();
+  const add=r => {const company=String(r[4]).toLowerCase();const n=counts.get(company)||0;
+    if(selected.length>=Math.min(5,limit)||selected.includes(r)||n>=perCompany)return false;
+    selected.push(r);counts.set(company,n+1);return true;};
+  const close=candidates.filter(r=>r[9]>=(candidates[0]?.[9]||0)-10);
+  const slots=Math.round(Math.min(5,limit)*defenseTarget);
+  for(const [sector,target] of [[true,slots],[false,Math.min(5,limit)-slots]]) {
+    let n=0;for(const r of close)if(n<target&&defenseIds.has(String(r[15]))===sector&&add(r))n++;
   }
-  // Fill reserved slots only with similarly qualified roles, then backfill by fit.
-  const close = candidates.filter(r => r[9] >= (candidates[0]?.[9] ?? 0) - 10);
-  const defenseSlots = Math.round(limit * defenseTarget);
-  for (const [isDefense, slots] of [[true, defenseSlots], [false, limit - defenseSlots]]) {
-    let taken = 0;
-    for (const r of close) {
-      if (taken < slots && defenseIds.has(String(r[15])) === isDefense && add(r)) taken++;
-    }
+  candidates.forEach(add);return selected.sort((a,b)=>b[9]-a[9]);
+}
+
+function dailyModel(rows, previous={}, options={}) {
+  const now=options.now||new Date();
+  const day=options.day||now.toISOString().slice(0,10);
+  const target=Math.min(5,options.target||5), perCompany=2;
+  const applied=new Set(rows.filter(r=>r[0]!=='Not Applied').map(r=>String(r[15])));
+  const allReady=rows.filter(r=>ready(r,now,applied));
+  const byId=new Map(allReady.map(r=>[String(r[15]),r]));
+  const selected=[], counts=new Map();
+  function add(r){if(!r||selected.length>=target||(counts.get(r[4])||0)>=perCompany||selected.includes(r))return;
+    selected.push(r);counts.set(r[4],(counts.get(r[4])||0)+1);}
+  if(previous.day===day)(previous.ids||[]).forEach(id=>add(byId.get(id)));
+  // Preserve valid assignments, then refill from the qualified portion of the queue.
+  shortlist(rows,5,2,options.defenseIds||new Set(),options.defenseTarget||.725,now).forEach(add);
+  allReady.sort((a,b)=>b[9]-a[9]).forEach(add);
+  const queue=[...selected], seen=new Set(selected.map(r=>String(r[15])));
+  for(const r of queueCandidates(rows,now)){
+    if(queue.length>=Math.min(25,options.queueLimit||24))break;
+    if(seen.has(String(r[15]))||(counts.get(r[4])||0)>=perCompany)continue;
+    seen.add(String(r[15]));queue.push(r);counts.set(r[4],(counts.get(r[4])||0)+1);
   }
-  candidates.forEach(add);
-  return selected.sort((a, b) => b[9] - a[9]);
+  return {day,ids:selected.map(r=>String(r[15])),daily:selected,queue,
+    reason:selected.length<3 ? 'Only '+selected.length+' verified, suitable, unapplied roles qualify. Previously applied roles, uncertain starts, inaccessible links, stale checks and duplicate concerns are withheld; no quota padding.' : ''};
 }
 
 function statusFormula(status) {
@@ -202,54 +250,77 @@ function statusFormula(status) {
   return '=COUNTIF(Jobs!A2:A,"' + status + '")';
 }
 
-function refreshDashboard(ss) {
-  const dashboard = ss.getSheetByName('Dashboard');
-  if (!dashboard) return;
-  dashboard.getRange(7, 2, 4, 1).setValues(['Applied','Interviewing','Offer','Rejected'].map(s => [statusFormula(s)]));
-  dashboard.getRange(20, 2, 2, 1).setValues(['Not Interested','Withdrawn'].map(s => [statusFormula(s)]));
-  dashboard.getRange(5, 2, 2, 1).setValues([
-    ['=COUNTIF(Jobs!Q2:Q,"Seen in latest search")'],
-    ['=COUNTIF(Jobs!A2:A,"Not Applied")'],
-  ]);
-  dashboard.getRange(22, 2).setValue(
-    '=COUNTIFS(Jobs!C2:C,">0",Jobs!C2:C,"<="&TODAY(),Jobs!A2:A,"Applied")' +
-    '+COUNTIFS(Jobs!C2:C,">0",Jobs!C2:C,"<="&TODAY(),Jobs!A2:A,"Interviewing")' +
-    '+COUNTIFS(Jobs!C2:C,">0",Jobs!C2:C,"<="&TODAY(),Jobs!A2:A,"Offer")'
-  );
-  dashboard.getRange(23, 2).setValue(
-    '=IFERROR(INDEX(FILTER(Jobs!C2:C,Jobs!P2:P="workday:rtx:01879801"),1),"")'
-  ).setNumberFormat('mmm d, yyyy');
-  dashboard.getRange(24, 2).setValue('=COUNTIFS(Jobs!R2:R,Settings!B3,Jobs!Q2:Q,"Seen in latest search")');
-  dashboard.getRange(25, 2).setValue("=COUNTIF('Apply Next'!A4:A15,\"Apply\")");
-  dashboard.getRange(26, 2).setValue('=COUNTIFS(Jobs!A2:A,"Not Applied",Jobs!Q2:Q,"Seen in latest search",Jobs!X2:X,"Apply")');
+function ensureView(ss, name, oldName) {
+  let sh=ss.getSheetByName(name)||ss.getSheetByName(oldName);
+  if(sh && sh.getName && sh.getName()!==name)sh.setName(name);
+  return sh||ss.insertSheet(name);
+}
+
+function refreshDashboard(ss, rows=[], model={daily:[],reason:''}) {
+  const sh=ensureView(ss,'Daily Dashboard','Dashboard');
+  sh.getRange(1,1,60,12).clearContent();
+  sh.getRange(1,1).setValue('Daily Dashboard');
+  sh.getRange(2,1).setValue('=IF(NOW()-Settings!B3>1.5,"STALE FEED — recommendations paused","Feed current")&" | Collected "&TEXT(Settings!B3,"mmm d hh:mm")&" | Synced "&TEXT(Settings!B4,"mmm d hh:mm")');
+  sh.getRange(3,1).setValue('Open posting → check qualifications → choose resume → apply → record in Jobs A:D. Job search menu → Refresh dashboard / refill. Optional defer: Jobs AI.');
+  sh.getRange(4,1,1,9).setValues([['Today completed','=COUNTIFS(Jobs!B2:B,">="&TODAY(),Jobs!B2:B,"<"&TODAY()+1,Jobs!A2:A,"<>Not Applied")','Applied',statusFormula('Applied'),'Interviewing',statusFormula('Interviewing'),'Offer',statusFormula('Offer'),'Dates shown in America/Indianapolis']]);
+  sh.getRange(5,1,1,9).setValues([['Rejected',statusFormula('Rejected'),'Not Interested',statusFormula('Not Interested'),'Withdrawn',statusFormula('Withdrawn'),'Not Applied',statusFormula('Not Applied'),'History stays in Jobs']]);
+  sh.getRange(6,1).setValue('=IF(COUNTIF(Sources!B2:B1000,"failed")+COUNTIF(Sources!B2:B1000,"partial")>0,"Source warning: "&TEXTJOIN(", ",TRUE,FILTER(Sources!A2:A1000,Sources!B2:B1000<>"ok",Sources!A2:A1000<>"")),"All employer sources collected successfully")');
+  sh.getRange(7,1).setValue('Today’s applications — '+model.daily.length+' selected. '+(model.reason||'Confirm requirements before submitting.'));
+  sh.getRange(8,1,1,9).setValues([['Company','Job / employer link','Location','Priority / fit','Employer posted','Resume','Recommendation / uncertainty','Why this role','Record']]);
+  const jobs=ss.getSheetByName('Jobs'), index=indexRows(rows);
+  const track=r=>'=HYPERLINK("'+ss.getUrl()+'#gid='+jobs.getSheetId()+'&range=A'+index.get(String(r[15]))+'","Record / defer")';
+  const link=r=>'=HYPERLINK("'+String(r[14]).replace(/"/g,'""')+'","'+String(r[5]).replace(/"/g,'""')+'")';
+  if(model.daily.length)sh.getRange(9,1,model.daily.length,9).setValues(model.daily.map(r=>[
+    textCell(r[4]),link(r),textCell(String(r[6]).length>100?'Multiple locations; see posting':r[6]),r[9]+' / '+r[7],r[20]||'Unknown',textCell(r[31]),'Apply — '+textCell(r[24]),textCell(r[25]),track(r)]));
+  sh.getRange(9,5,5,1).setNumberFormat('mmm d, yyyy');
+  sh.getRange(15,1).setValue('Follow-ups due / overdue — records and dates preserved');
+  sh.getRange(16,1,1,6).setValues([['Company','Role','Status','Due','Notes / action','Record']]);
+  const today=new Date();today.setHours(23,59,59,999);
+  const due=rows.filter(r=>['Applied','Interviewing','Offer'].includes(r[0])&&r[2] instanceof Date&&r[2]<=today).sort((a,b)=>a[2]-b[2]);
+  if(due.length)sh.getRange(17,1,Math.min(8,due.length),6).setValues(due.slice(0,8).map(r=>[textCell(r[4]),textCell(r[5]),r[0],r[2],textCell(r[0]==='Offer'&&r[4]==='RTX'?'Confirm written offer and decision deadline. '+r[3]:r[3]||'Review application / recruiter next step'),track(r)]));
+  else sh.getRange(17,1).setValue('No recorded follow-ups due.');
+  sh.getRange(17,4,8,1).setNumberFormat('mmm d, yyyy');
+  sh.getRange(26,1,1,4).setValues([['Verified active','=COUNTIF(Jobs!AA2:AA,"Verified active")','Unverified','=COUNTIF(Jobs!AA2:AA,"Unverified")']]);
+  sh.getRange(27,1,1,4).setValues([['Stale checks','=COUNTIF(Jobs!AA2:AA,"Stale")','Confirmed closed','=COUNTIF(Jobs!AA2:AA,"Confirmed closed")']]);
+  sh.getRange(29,1).setValue('Resume categories are suggestions; no tailored resume is generated automatically. Open listings do not establish interview activity.');
+  if(sh.setFrozenRows)sh.setFrozenRows(8);
 }
 
 function refreshViews() {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const jobs = ss.getSheetByName('Jobs');
-  const rows = jobs.getLastRow() > 1 ? jobs.getRange(2,1,jobs.getLastRow()-1,HEADERS.length).getValues() : [];
-  const index = indexRows(rows);
-  refreshDashboard(ss);
-  const view = ss.getSheetByName('Apply Next');
-  const props = PropertiesService.getDocumentProperties();
-  const defense = new Set(JSON.parse(props.getProperty('defenseIds') || '[]'));
-  const chosen = shortlist(rows, Number(props.getProperty('shortlistLimit')) || 12,
-    Number(props.getProperty('shortlistPerCompany')) || 2, defense, Number(props.getProperty('defenseTarget')) || 0.725);
-  if (view.getLastRow() > 3) view.getRange(4,1,view.getLastRow()-3,12).clearContent();
-  view.getRange(3,1,1,12).clearContent();
+  const ss=SpreadsheetApp.getActiveSpreadsheet(),jobs=ss.getSheetByName('Jobs');
+  const rows=jobs.getLastRow()>1?jobs.getRange(2,1,jobs.getLastRow()-1,HEADERS.length).getValues():[];
+  const props=PropertiesService.getDocumentProperties();
+  const previous=JSON.parse(props.getProperty('dailySelection')||'{}');
+  const stamp=ss.getSheetByName('Settings').getRange('B3').getValue();
+  const feedFresh=ageHours(stamp)<=36;
+  const day=typeof Utilities!=='undefined'?Utilities.formatDate(new Date(),'America/Indianapolis','yyyy-MM-dd'):new Date().toISOString().slice(0,10);
+  const model=dailyModel(rows,previous,{day,target:Number(props.getProperty('dailyTarget'))||5,queueLimit:Number(props.getProperty('priorityQueueLimit'))||24,defenseIds:new Set(JSON.parse(props.getProperty('defenseIds')||'[]'))});
+  if(!feedFresh){model.daily=[];model.ids=[];model.reason='Feed is over 36 hours old or missing; wait for successful collection / sync.';}
+  props.setProperty('dailySelection',JSON.stringify({day:model.day,ids:model.ids}));
+  const view=ensureView(ss,'Priority Queue','Apply Next');
+  view.getRange(1,1,60,12).clearContent();
+  view.getRange(1,1).setValue('Priority Queue');
+  view.getRange(2,1).setValue(model.queue.length+' opportunities. Today rows are assigned to Daily Dashboard; Backlog is remaining work. Needs Review is not application-ready.');
   view.getRange(3,1,1,QUEUE_HEADERS.length).setValues([QUEUE_HEADERS]);
-  view.getRange(2,1).setValue(chosen.length + ' Apply candidates. Stretch and Review stay in Jobs.');
-  const values = chosen.map(r => {
-    const url = String(r[14]).replace(/"/g, '""');
-    const title = String(r[5]).replace(/"/g, '""');
-    const location = String(r[6]).length > 100 ? 'Multiple US locations; see posting' : r[6];
-    return ['Apply', textCell(r[4]), '=HYPERLINK("' + url + '","' + title + '")', textCell(location),
-      r[20] || 'Unknown', textCell(r[10]), textCell(r[24]), r[9], textCell(r[25]),
-      '=HYPERLINK("' + ss.getUrl() + '#gid=' + jobs.getSheetId() + '&range=A' + index.get(String(r[15])) + '","Track")'];
-  });
-  if (values.length) {
-    view.getRange(4,1,values.length,QUEUE_HEADERS.length).setValues(values);
-    view.getRange(4,5,values.length,1).setNumberFormat('mmm d, yyyy');
+  const index=indexRows(rows),assigned=new Set(model.ids);
+  const values=model.queue.map(r=>[assigned.has(String(r[15]))?'Today':'Backlog',feedFresh&&ready(r)?'Apply':r[23]==='Stretch'?'Stretch':'Needs Review',textCell(r[4]),
+    '=HYPERLINK("'+String(r[14]).replace(/"/g,'""')+'","'+String(r[5]).replace(/"/g,'""')+'")',textCell(String(r[6]).length>100?'Multiple US locations; see posting':r[6]),r[9],r[20]||'Unknown',textCell(r[10]+' | '+r[24]),
+    textCell((ageHours(r[27])>36&&r[26]==='Verified active'?'Stale':r[26]||'Unverified')+' | '+(r[30]||'')+' | '+(r[32] instanceof Date?r[32].toISOString():'Check pending')),textCell(r[31]),textCell(r[25]+' | '+(r[23]==='Apply'?'Confirm personal qualifications / authorization':r[24])),
+    '=HYPERLINK("'+ss.getUrl()+'#gid='+jobs.getSheetId()+'&range=A'+index.get(String(r[15]))+'","Record / defer")']);
+  if(values.length){view.getRange(4,1,values.length,12).setValues(values);view.getRange(4,7,values.length,1).setNumberFormat('mmm d, yyyy');}
+  refreshDashboard(ss,rows,model);
+  if(ss.setActiveSheet){const dashboard=ss.getSheetByName('Daily Dashboard');ss.setActiveSheet(dashboard);ss.moveActiveSheet(1);}
+  formatViews(ss);
+}
+
+function formatViews(ss) {
+  for(const [name,widths] of [['Daily Dashboard',[125,260,150,100,110,130,240,240,115]],['Priority Queue',[85,115,125,280,145,75,110,270,255,130,260,115]]]){
+    const sh=ss.getSheetByName(name);if(!sh||!sh.setColumnWidth)continue;
+    widths.forEach((w,i)=>sh.setColumnWidth(i+1,w));
+    sh.getRange(1,1,35,widths.length).setWrap(true).setVerticalAlignment('middle');
+    sh.getRange(name==='Daily Dashboard'?8:3,1,1,widths.length).setFontWeight('bold').setBackground('#e8eaed');
+    sh.setRowHeights(name==='Daily Dashboard'?9:4,name==='Daily Dashboard'?5:25,90);
+    if(sh.setHiddenGridlines)sh.setHiddenGridlines(true);
   }
 }
 
@@ -259,4 +330,4 @@ function installDailyTrigger() {
   ScriptApp.newTrigger('syncJobs').timeBased().everyDays(1).atHour(15).inTimezone('Etc/UTC').create();
 }
 
-if (typeof module !== 'undefined') module.exports = {autoFields,validateFeed,indexRows,shortlist,textCell,statusFormula,HEADERS,STATUSES,QUEUE_HEADERS};
+if (typeof module !== 'undefined') module.exports = {autoFields,validateFeed,indexRows,shortlist,textCell,statusFormula,HEADERS,STATUSES,QUEUE_HEADERS,ready,dailyModel,queueCandidates,ageHours};
