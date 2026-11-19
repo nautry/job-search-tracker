@@ -4,7 +4,7 @@ import re
 
 EXCLUDED_DUTIES = re.compile(
     r"\b(?:manufacturing|production|process|industrial|tooling|factory automation|"
-    r"supplier development|equipment|quality)\s+(?:\w+\s+)?engineer\b|\b(?:tooling|factory automation|production automation)\b|engineer,\s*automation\b", re.I
+    r"supplier development|equipment|quality)\s+(?:\w+\s+)?engineer(?:ing)?\b|\b(?:tooling|factory automation|production automation)\b|engineer,\s*automation\b", re.I
 )
 HARDWARE_DUTIES = re.compile(
     r"\b(?:CAD|SolidWorks|Creo|CATIA|autodesk|mechanisms?|mechanical design|"

@@ -36,6 +36,6 @@ class EligibilityTest(unittest.TestCase):
         self.assertEqual(recency_points(posting_age("2026-09-01", now)), 0)
 
     def test_queue_omits_factory_and_temporary_roles(self):
-        for title in ['Mechanical Engineer, Welding', 'Construction Mechanical Engineer II', 'Sourcing Specialist, Electro Mechanical']:
+        for title in ['Manufacturing Engineering, Propulsion', 'Mechanical Engineer, Welding', 'Construction Mechanical Engineer II', 'Sourcing Specialist, Electro Mechanical']:
             self.assertFalse(self.classify(title, 'June 2027 start', 1)['queue_eligible'])
         self.assertFalse(self.classify('Mechanical Associate Engineer', 'June 2027. Temporary position for 12 weeks.', 0)['queue_eligible'])

@@ -84,4 +84,5 @@ ctx.refreshDashboard(ctx.SpreadsheetApp.getActiveSpreadsheet(),sheets.Jobs.rows.
 assert.equal(sheets['Daily Dashboard'].rows[3][7],statusFormula('Offer'));
 assert.ok(sheets['Daily Dashboard'].rows[3][1].includes('Jobs!B2:B'));
 assert.equal(HEADERS[34],'Deferred until');
+assert.equal(dailyModel([Object.assign(candidate('factory'),{5:'Manufacturing Engineering, Propulsion'})],{},{now}).queue.length,0);
 console.log('Daily workflow tests passed: stable assignments, refill, employer caps, duplicate/closed/stale/uncertain/deferred exclusion, status formulas and manual deferral preservation.');
