@@ -31,6 +31,9 @@ class PracticalScreening(unittest.TestCase):
     def test_unknown_experience_generic_role_is_material_hold(self):
         self.assertEqual(self.screen(years=None,title='Mechanical Engineer')['category'],'Hold')
         self.assertEqual(self.screen(years=None,title='Mechanical Engineer I')['category'],'Recommended')
+    def test_manufacturing_scope_suffix_is_consistent_with_views(self):
+        self.assertEqual(self.screen(title='Mechanical Engineer, Optical Manufacturing')['category'],'Ineligible')
+        self.assertEqual(self.screen(title='Mechanical Design Engineer, Production')['category'],'Ineligible')
     def test_specialist_role_and_clearance(self):
         self.assertEqual(self.screen(title='RF Test Engineer I')['category'],'Ineligible')
         self.assertEqual(self.screen('Active Secret clearance required.')['category'],'Hold')

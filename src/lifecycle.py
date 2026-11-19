@@ -52,7 +52,7 @@ def deduplicate(previous, observed):
             current = result[positions[key]]
             locations = list(dict.fromkeys([current['location'], j['location']]))
             current['location'] = '; '.join(locations)
-            current['aliases'] = list(dict.fromkeys(current.get('aliases', []) + aliases))
+            current['aliases'] = list(dict.fromkeys(current.get('aliases', []) + aliases + ([j['id']] if j['id'] != current['id'] else [])))
             current['exact_duplicates_collapsed'] = current.get('exact_duplicates_collapsed', 0) + 1
         else:
             positions[key] = len(result)
@@ -83,6 +83,14 @@ def mark_related(jobs):
                     for one, other in [(a, b), (b, a)]:
                         one['related_ids'].append(other['id'])
                         one['duplicate_state'] = 'Exact requisition alias; review history' if same_req else 'Possible repost / duplicate; distinct requisitions retained'
+    by_id={j['id']:j for j in jobs}
+    for j in jobs:
+        for alias in j.get('aliases',[]):
+            other=by_id.get(alias)
+            if other and other is not j:
+                j['related_ids']=list(dict.fromkeys(j['related_ids']+[alias]))
+                other['related_ids']=list(dict.fromkeys(other['related_ids']+[j['id']]))
+                j['duplicate_state']=other['duplicate_state']='Exact requisition alias; review history'
     for j in jobs:
         j.pop('_identity_title', None)
     return jobs
@@ -118,8 +126,10 @@ def availability(previous, job, timestamp, seen, source):
             out['availability_state'] = 'Confirmed closed'  # Reopening needs positive verification.
         elif job.get('verification_result') == 'unverified' or (not seen and full):
             out['availability_state'] = 'Unverified'
-        elif not out.get('accepting_applications') or previous.get('verification_version') != 2 or hours_since(out.get('last_confirmed_active'), timestamp) > 72:
-            out['availability_state'] = 'Stale' if out.get('last_confirmed_active') else 'Unverified'
+        elif not out.get('accepting_applications') or previous.get('verification_version') != 2:
+            out['availability_state'] = 'Unverified'
+        elif hours_since(out.get('last_confirmed_active'), timestamp) > 72:
+            out['availability_state'] = 'Stale'
         else:
             out['availability_state'] = 'Verified active'
         if out['availability_state'] != 'Verified active':

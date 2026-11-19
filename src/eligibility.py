@@ -2,7 +2,7 @@
 from datetime import datetime, timezone
 import re
 
-EXCLUDED_DUTIES = re.compile(r'\b(?:manufacturing|production|process|industrial|tooling|factory automation|supplier development|equipment|quality)\s+(?:\w+\s+)?engineer(?:ing)?\b|\b(?:tooling|factory automation|production automation|sourcing|procurement|construction|welding|facilities|HVAC|technician|field service)\b|engineer,\s*automation\b', re.I)
+EXCLUDED_DUTIES = re.compile(r'\b(?:manufacturing|production|process|industrial|tooling|factory automation)\b|\b(?:manufacturing|production|process|industrial|tooling|factory automation|supplier development|equipment|quality)\s+(?:\w+\s+)?engineer(?:ing)?\b|\b(?:tooling|factory automation|production automation|sourcing|procurement|construction|welding|facilities|HVAC|technician|field service)\b|engineer,\s*automation\b', re.I)
 HARDWARE_DUTIES = re.compile(r'\b(?:CAD|SolidWorks|Creo|CATIA|autodesk|mechanisms?|mechanical design|machine design|mechanical testing|hardware test|test fixtures?|electromechanical|mechatronics?|engineering drawings|prototypes?|structural analysis|GD&T|flight.test|data acquisition|environmental testing|electrical integration)\b', re.I)
 DEGREE = re.compile(r'mechanical|aerospace|mechatronics|engineering (?:or related|discipline|field)|related engineering', re.I)
 ENTRY_TITLE = re.compile(r'\b(?:new.grad(?:uate)?|entry.level|early.career|university.grad|recent graduate|engineer\s+i|associate\s+(?:mechanical\s+)?engineer)\b', re.I)

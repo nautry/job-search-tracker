@@ -60,3 +60,13 @@ class Lifecycle(unittest.TestCase):
         row=reconcile([old],[],[{'source':'test','status':'failed'}],'2026-11-18T12:00:00Z')[0]
         self.assertEqual(row['first_seen'],'2025-01-01');self.assertEqual(row['last_seen'],'2025-01-02')
         self.assertEqual(row['availability_state'],'Confirmed closed')
+
+    def test_proven_alias_links_historical_application_record(self):
+        a={**job(),'employer_requisition_id':'REQ-7'}
+        b={**job('greenhouse:test:2'),'employer_requisition_id':'REQ-7','location':'Seattle, WA'}
+        observations=deduplicate([a,b],[a,b])
+        self.assertEqual(len(observations),1)
+        self.assertIn(b['id'],observations[0]['aliases'])
+        history=mark_related([observations[0],b])
+        self.assertIn(b['id'],history[0]['related_ids'])
+        self.assertIn(a['id'],history[1]['related_ids'])
