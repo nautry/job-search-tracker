@@ -86,3 +86,13 @@ assert.ok(sheets['Daily Dashboard'].rows[3][1].includes('Jobs!B2:B'));
 assert.equal(HEADERS[34],'Deferred until');
 assert.equal(dailyModel([Object.assign(candidate('factory'),{5:'Manufacturing Engineering, Propulsion'})],{},{now}).queue.length,0);
 console.log('Daily workflow tests passed: stable assignments, refill, employer caps, duplicate/closed/stale/uncertain/deferred exclusion, status formulas and manual deferral preservation.');
+
+const datedFollowup=Object.assign(candidate('dated'),{0:'Offer',2:new Date(Date.now()-86400000),20:new Date('2026-11-01T12:00:00Z')});
+const unknownFollowup=Object.assign(candidate('unknown'),{0:'Interviewing',2:new Date(Date.now()-86400000),20:''});
+ctx.refreshDashboard(ctx.SpreadsheetApp.getActiveSpreadsheet(),[datedFollowup,unknownFollowup],{daily:[],reason:''});
+assert.equal(sheets['Daily Dashboard'].rows[15][2],'Employer posted');
+assert.equal(sheets['Daily Dashboard'].rows[16][2],datedFollowup[20]);
+assert.equal(sheets['Daily Dashboard'].rows[16][3],'Offer');
+assert.equal(sheets['Daily Dashboard'].rows[16][4],datedFollowup[2]);
+assert.equal(sheets['Daily Dashboard'].rows[17][2],'Unknown');
+console.log('Follow-up employer publication date and unknown-date regressions passed.');

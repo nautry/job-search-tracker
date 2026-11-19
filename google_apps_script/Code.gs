@@ -258,6 +258,8 @@ function ensureView(ss, name, oldName) {
 
 function refreshDashboard(ss, rows=[], model={daily:[],reason:''}) {
   const sh=ensureView(ss,'Daily Dashboard','Dashboard');
+  const followupLayout=sh.getRange(16,5,9,4);
+  if(followupLayout.breakApart)followupLayout.breakApart();
   sh.getRange(1,1,60,12).clearContent();
   sh.getRange(1,1).setValue('Daily Dashboard');
   sh.getRange(2,1).setValue('=IF(NOW()-Settings!B3>1.5,"STALE FEED — recommendations paused","Feed current")&" | Collected "&TEXT(Settings!B3,"mmm d hh:mm")&" | Synced "&TEXT(Settings!B4,"mmm d hh:mm")');
@@ -274,13 +276,15 @@ function refreshDashboard(ss, rows=[], model={daily:[],reason:''}) {
     textCell(r[4]),link(r),textCell(String(r[6]).length>100?'Multiple locations; see posting':r[6]),r[9]+' / '+r[7],r[20]||'Unknown',textCell(r[31]),'Apply — '+textCell(r[24]),textCell(r[25]),track(r)]));
   sh.getRange(9,5,5,1).setNumberFormat('mmm d, yyyy');
   sh.getRange(15,1).setValue('Follow-ups due / overdue — records and dates preserved');
-  sh.getRange(16,1,1,9).setValues([['Company','Role','Status','Due','Notes / action','','','','Record']]);
+  sh.getRange(16,1,1,9).setValues([['Company','Role','Employer posted','Status','Follow-up due','Notes / action','','','Record']]);
   const today=new Date();today.setHours(23,59,59,999);
   const due=rows.filter(r=>['Applied','Interviewing','Offer'].includes(r[0])&&r[2] instanceof Date&&r[2]<=today).sort((a,b)=>a[2]-b[2]);
   model.followupCount=Math.min(8,due.length);
-  if(due.length)sh.getRange(17,1,Math.min(8,due.length),9).setValues(due.slice(0,8).map(r=>[textCell(r[4]),textCell(r[5]),r[0],r[2],textCell(r[0]==='Offer'&&r[4]==='RTX'?'Confirm written offer and decision deadline. '+r[3]:r[3]||'Review application / recruiter next step'),'','','',track(r)]));
+  if(due.length)sh.getRange(17,1,Math.min(8,due.length),9).setValues(due.slice(0,8).map(r=>[textCell(r[4]),textCell(r[5]),r[20]||'Unknown',r[0],r[2],textCell(r[0]==='Offer'&&r[4]==='RTX'?'Confirm written offer and decision deadline. '+r[3]:r[3]||'Review application / recruiter next step'),'','',track(r)]));
   else sh.getRange(17,1).setValue('No recorded follow-ups due.');
-  sh.getRange(17,4,8,1).setNumberFormat('mmm d, yyyy');
+  sh.getRange(17,3,8,1).setNumberFormat('mmm d, yyyy');
+  sh.getRange(17,4,8,1).setNumberFormat('@');
+  sh.getRange(17,5,8,1).setNumberFormat('mmm d, yyyy');
   sh.getRange(26,1,1,4).setValues([['Verified active','=COUNTIF(Jobs!AA2:AA,"Verified active")','Unverified','=COUNTIF(Jobs!AA2:AA,"Unverified")']]);
   sh.getRange(27,1,1,4).setValues([['Stale checks','=COUNTIF(Jobs!AA2:AA,"Stale")','Confirmed closed','=COUNTIF(Jobs!AA2:AA,"Confirmed closed")']]);
   sh.getRange(29,1).setValue('Resume categories are suggestions; no tailored resume is generated automatically. Open listings do not establish interview activity.');
@@ -325,7 +329,7 @@ function formatViews(ss,model={daily:[]}) {
       sh.getRange(1,1).setFontSize(14).setFontWeight('bold');
       sh.getRange(16,1,1,9).setFontWeight('bold').setBackground('#e8eaed');
       for(const r of [1,2,3,6,7,15,29])sh.getRange(r,1,1,9).mergeAcross();
-      for(let r=16;r<=24;r++)sh.getRange(r,5,1,4).mergeAcross();
+      for(let r=16;r<=24;r++)sh.getRange(r,6,1,3).mergeAcross();
       sh.setRowHeight(2,36);sh.setRowHeight(3,42);sh.setRowHeight(6,36);sh.setRowHeight(7,56);sh.setRowHeight(29,40);
       if(model.daily.length)sh.setRowHeights(9,model.daily.length,96);
       if(model.followupCount)sh.setRowHeights(17,model.followupCount,95);
