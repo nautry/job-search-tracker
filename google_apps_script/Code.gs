@@ -24,6 +24,12 @@ function textCell(value) {
   return /^[=+@\-]/.test(s) ? "'" + s : s;
 }
 
+function fitSummary(j){
+  const terms=j.screening_evidence?.hardware_terms||[];
+  const text=terms.length?'Matches '+terms.slice(0,5).join(', '):j.fit_reason||j.decision_reason||'Automatic screening pending';
+  return text.length<=145?text:text.slice(0,142).replace(/\s+\S*$/,'')+'…';
+}
+
 function autoFields(j) {
   if (!/^https:\/\//i.test(j.url)) throw new Error('Invalid job link: ' + j.id);
   const title = String(j.title).replace(/"/g,'""');
@@ -32,7 +38,7 @@ function autoFields(j) {
     postingDate(j.posted_at), j.posting_age ?? 'Unknown', Number(j.recency_points || 0),
     DECISIONS.includes(j.category) ? j.category : 'Hold',
     textCell([j.start_eligibility || 'Timing not stated',...(j.caveats||[]).filter(c=>!c.includes('timing')&&!c.includes('start date'))].join(' | ').slice(0,200)),
-    textCell((j.fit_reason || j.decision_reason || 'Automatic screening pending').slice(0,170)), textCell(j.availability_state || 'Unverified'), postingDate(j.last_confirmed_active), textCell(j.verification_detail || 'Employer URL not verified'), textCell((j.related_ids || []).join(' | ')), textCell(j.duplicate_state || ''), textCell(j.resume_variant || 'Design'), postingDate(j.availability_checked_at), j.queue_eligible === true];
+    textCell(fitSummary(j)), textCell(j.availability_state || 'Unverified'), postingDate(j.last_confirmed_active), textCell(j.verification_detail || 'Employer URL not verified'), textCell((j.related_ids || []).join(' | ')), textCell(j.duplicate_state || ''), textCell(j.resume_variant || 'Design'), postingDate(j.availability_checked_at), j.queue_eligible === true];
 }
 
 function postingDate(value) {
@@ -294,7 +300,7 @@ function dailyModel(rows, previous={}, options={}) {
   return {day,ids:selected.map(r=>String(r[15])),daily:selected,queue,fallback,reason:selected.length<3?cause:''};
 }
 
-function todayFormula(){return '=SUM(COUNTIFS(Jobs!B2:B,">="&TODAY(),Jobs!B2:B,"<"&TODAY()+1,Jobs!A2:A,{"Applied","Interviewing","Offer","Rejected","Withdrawn"}))';}
+function todayFormula(){return '='+['Applied','Interviewing','Offer','Rejected','Withdrawn'].map(s=>'COUNTIFS(Jobs!B2:B,">="&TODAY(),Jobs!B2:B,"<"&TODAY()+1,Jobs!A2:A,"'+s+'")').join('+');}
 function totalApplicationsFormula(){return '='+['Applied','Interviewing','Offer','Rejected','Withdrawn'].map(s=>statusFormula(s).slice(1)).join('+');}
 function followupsFormula(){return '='+['Applied','Interviewing','Offer'].map(s=>'COUNTIFS(Jobs!C2:C,">0",Jobs!C2:C,"<="&TODAY(),Jobs!A2:A,"'+s+'")').join('+');}
 
