@@ -311,8 +311,8 @@ function ensureView(ss, name, oldName) {
 
 function refreshDashboard(ss, rows=[], model={daily:[],reason:''}) {
   const sh=ensureView(ss,'Daily Dashboard','Dashboard');
-  const followupLayout=sh.getRange(16,5,9,4);
-  if(followupLayout.breakApart)followupLayout.breakApart();
+  const generatedLayout=sh.getRange(1,1,60,12);
+  if(generatedLayout.breakApart)generatedLayout.breakApart();
   sh.getRange(1,1,60,12).clearContent();
   sh.getRange(1,1).setValue('Daily Dashboard');
   sh.getRange(2,1).setValue('=IF(NOW()-Settings!B3>1.5,"STALE FEED — recommendations paused","Feed current")&" | Collected "&TEXT(Settings!B3,"mmm d hh:mm")&" | Synced "&TEXT(Settings!B4,"mmm d hh:mm")');
