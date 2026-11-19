@@ -321,7 +321,9 @@ function formatViews(ss,model={daily:[]}) {
     sh.getRange(1,1,35,widths.length).setWrap(true).setVerticalAlignment('middle');
     sh.getRange(name==='Daily Dashboard'?8:3,1,1,widths.length).setFontWeight('bold').setBackground('#e8eaed');
     if(name==='Daily Dashboard'){
-      sh.setRowHeights(1,35,26);
+      sh.setRowHeights(1,35,26);sh.setRowHeight(4,44);sh.setRowHeight(5,36);
+      sh.getRange(1,1).setFontSize(14).setFontWeight('bold');
+      sh.getRange(16,1,1,9).setFontWeight('bold').setBackground('#e8eaed');
       for(const r of [1,2,3,6,7,15,29])sh.getRange(r,1,1,9).mergeAcross();
       for(let r=16;r<=24;r++)sh.getRange(r,5,1,4).mergeAcross();
       sh.setRowHeight(2,36);sh.setRowHeight(3,42);sh.setRowHeight(6,36);sh.setRowHeight(7,56);sh.setRowHeight(29,40);
