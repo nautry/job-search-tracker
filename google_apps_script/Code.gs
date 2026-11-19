@@ -277,6 +277,7 @@ function refreshDashboard(ss, rows=[], model={daily:[],reason:''}) {
   sh.getRange(16,1,1,9).setValues([['Company','Role','Status','Due','Notes / action','','','','Record']]);
   const today=new Date();today.setHours(23,59,59,999);
   const due=rows.filter(r=>['Applied','Interviewing','Offer'].includes(r[0])&&r[2] instanceof Date&&r[2]<=today).sort((a,b)=>a[2]-b[2]);
+  model.followupCount=Math.min(8,due.length);
   if(due.length)sh.getRange(17,1,Math.min(8,due.length),9).setValues(due.slice(0,8).map(r=>[textCell(r[4]),textCell(r[5]),r[0],r[2],textCell(r[0]==='Offer'&&r[4]==='RTX'?'Confirm written offer and decision deadline. '+r[3]:r[3]||'Review application / recruiter next step'),'','','',track(r)]));
   else sh.getRange(17,1).setValue('No recorded follow-ups due.');
   sh.getRange(17,4,8,1).setNumberFormat('mmm d, yyyy');
@@ -325,8 +326,8 @@ function formatViews(ss,model={daily:[]}) {
       for(let r=16;r<=24;r++)sh.getRange(r,5,1,4).mergeAcross();
       sh.setRowHeight(2,36);sh.setRowHeight(3,42);sh.setRowHeight(6,36);sh.setRowHeight(7,56);sh.setRowHeight(29,40);
       if(model.daily.length)sh.setRowHeights(9,model.daily.length,96);
-      sh.setRowHeights(17,2,95);
-    }else sh.setRowHeights(4,25,96);
+      if(model.followupCount)sh.setRowHeights(17,model.followupCount,95);
+    }else {sh.getRange(1,1,1,12).mergeAcross();sh.getRange(2,1,1,12).mergeAcross();sh.setRowHeight(2,42);sh.setRowHeights(4,25,96);}
     if(sh.setHiddenGridlines)sh.setHiddenGridlines(true);
   }
 }
