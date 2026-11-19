@@ -274,10 +274,10 @@ function refreshDashboard(ss, rows=[], model={daily:[],reason:''}) {
     textCell(r[4]),link(r),textCell(String(r[6]).length>100?'Multiple locations; see posting':r[6]),r[9]+' / '+r[7],r[20]||'Unknown',textCell(r[31]),'Apply — '+textCell(r[24]),textCell(r[25]),track(r)]));
   sh.getRange(9,5,5,1).setNumberFormat('mmm d, yyyy');
   sh.getRange(15,1).setValue('Follow-ups due / overdue — records and dates preserved');
-  sh.getRange(16,1,1,6).setValues([['Company','Role','Status','Due','Notes / action','Record']]);
+  sh.getRange(16,1,1,9).setValues([['Company','Role','Status','Due','Notes / action','','','','Record']]);
   const today=new Date();today.setHours(23,59,59,999);
   const due=rows.filter(r=>['Applied','Interviewing','Offer'].includes(r[0])&&r[2] instanceof Date&&r[2]<=today).sort((a,b)=>a[2]-b[2]);
-  if(due.length)sh.getRange(17,1,Math.min(8,due.length),6).setValues(due.slice(0,8).map(r=>[textCell(r[4]),textCell(r[5]),r[0],r[2],textCell(r[0]==='Offer'&&r[4]==='RTX'?'Confirm written offer and decision deadline. '+r[3]:r[3]||'Review application / recruiter next step'),track(r)]));
+  if(due.length)sh.getRange(17,1,Math.min(8,due.length),9).setValues(due.slice(0,8).map(r=>[textCell(r[4]),textCell(r[5]),r[0],r[2],textCell(r[0]==='Offer'&&r[4]==='RTX'?'Confirm written offer and decision deadline. '+r[3]:r[3]||'Review application / recruiter next step'),'','','',track(r)]));
   else sh.getRange(17,1).setValue('No recorded follow-ups due.');
   sh.getRange(17,4,8,1).setNumberFormat('mmm d, yyyy');
   sh.getRange(26,1,1,4).setValues([['Verified active','=COUNTIF(Jobs!AA2:AA,"Verified active")','Unverified','=COUNTIF(Jobs!AA2:AA,"Unverified")']]);
@@ -310,16 +310,23 @@ function refreshViews() {
   if(values.length){view.getRange(4,1,values.length,12).setValues(values);view.getRange(4,7,values.length,1).setNumberFormat('mmm d, yyyy');}
   refreshDashboard(ss,rows,model);
   if(ss.setActiveSheet){const dashboard=ss.getSheetByName('Daily Dashboard');ss.setActiveSheet(dashboard);ss.moveActiveSheet(1);}
-  formatViews(ss);
+  formatViews(ss,model);
 }
 
-function formatViews(ss) {
-  for(const [name,widths] of [['Daily Dashboard',[125,260,150,100,110,130,240,240,115]],['Priority Queue',[85,115,125,280,145,75,110,270,255,130,260,115]]]){
+function formatViews(ss,model={daily:[]}) {
+  for(const [name,widths] of [['Daily Dashboard',[105,225,110,75,95,110,190,185,100]],['Priority Queue',[85,115,125,280,145,75,110,270,255,130,260,115]]]){
     const sh=ss.getSheetByName(name);if(!sh||!sh.setColumnWidth)continue;
     widths.forEach((w,i)=>sh.setColumnWidth(i+1,w));
     sh.getRange(1,1,35,widths.length).setWrap(true).setVerticalAlignment('middle');
     sh.getRange(name==='Daily Dashboard'?8:3,1,1,widths.length).setFontWeight('bold').setBackground('#e8eaed');
-    sh.setRowHeights(name==='Daily Dashboard'?9:4,name==='Daily Dashboard'?5:25,90);
+    if(name==='Daily Dashboard'){
+      sh.setRowHeights(1,35,26);
+      for(const r of [1,2,3,6,7,15,29])sh.getRange(r,1,1,9).mergeAcross();
+      for(let r=16;r<=24;r++)sh.getRange(r,5,1,4).mergeAcross();
+      sh.setRowHeight(2,36);sh.setRowHeight(3,42);sh.setRowHeight(6,36);sh.setRowHeight(7,56);sh.setRowHeight(29,40);
+      if(model.daily.length)sh.setRowHeights(9,model.daily.length,96);
+      sh.setRowHeights(17,2,95);
+    }else sh.setRowHeights(4,25,96);
     if(sh.setHiddenGridlines)sh.setHiddenGridlines(true);
   }
 }
