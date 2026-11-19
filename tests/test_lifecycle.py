@@ -62,11 +62,21 @@ class Lifecycle(unittest.TestCase):
         self.assertEqual(row['availability_state'],'Confirmed closed')
 
     def test_proven_alias_links_historical_application_record(self):
-        a={**job(),'employer_requisition_id':'REQ-7'}
-        b={**job('greenhouse:test:2'),'employer_requisition_id':'REQ-7','location':'Seattle, WA'}
+        a={**job(),'employer_requisition_id':'REQ-7','employer_internal_job_id':77}
+        b={**job('greenhouse:test:2'),'employer_requisition_id':'REQ-7','employer_internal_job_id':77,'location':'Seattle, WA'}
         observations=deduplicate([a,b],[a,b])
         self.assertEqual(len(observations),1)
         self.assertIn(b['id'],observations[0]['aliases'])
         history=mark_related([observations[0],b])
         self.assertIn(b['id'],history[0]['related_ids'])
         self.assertIn(a['id'],history[1]['related_ids'])
+
+    def test_shared_hr_code_does_not_merge_separate_ats_jobs(self):
+        a={**job(),'employer_requisition_id':'EVERGREEN','employer_internal_job_id':77}
+        b={**job('greenhouse:test:2'),'employer_requisition_id':'EVERGREEN','employer_internal_job_id':88}
+        rows=deduplicate([],[a,b]);self.assertEqual(len(rows),2)
+        linked=mark_related(rows)
+        self.assertNotIn('Exact requisition',linked[0]['duplicate_state'])
+        self.assertIn(b['id'],linked[0]['related_ids'])
+    def test_different_provider_namespaces_not_same_numeric_id(self):
+        self.assertEqual(len(deduplicate([],[job(),job('lever:test:1')])),2)

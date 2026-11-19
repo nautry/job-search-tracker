@@ -36,7 +36,8 @@ def deduplicate(previous, observed):
     """Collapse only proven identity in new observations; keep every historical record."""
     def key_for(j):
         provider=j['id'].split(':',1)[0]
-        return (company_key(j),provider,str(j.get('employer_requisition_id') or j.get('requisition_id') or j['id'].split(':',2)[-1]).casefold())
+        identity='internal:'+str(j['employer_internal_job_id']) if provider=='greenhouse' and j.get('employer_internal_job_id') else 'posting:'+str(j.get('provider_job_id') or j['id'].split(':',2)[-1])
+        return (company_key(j),provider,identity.casefold())
     old_keys = {}
     for j in previous:old_keys.setdefault(key_for(j), j['id'])
     known_ids = {j['id'] for j in previous}
@@ -47,7 +48,7 @@ def deduplicate(previous, observed):
         # Preserve the original stable ID even if source aliases/endpoint names change.
         stable = j['id'] if j['id'] in known_ids else old_keys.get(key, j['id'])
         aliases = list(dict.fromkeys(j.get('aliases', []) + ([j['id']] if stable != j['id'] else [])))
-        j = {**j, 'id': stable, 'aliases': aliases}
+        j = {**j, 'id': stable, 'aliases': aliases, 'identity_version':3}
         if key in positions:
             current = result[positions[key]]
             locations = list(dict.fromkeys([current['location'], j['location']]))
@@ -71,21 +72,23 @@ def mark_related(jobs):
     for group in groups.values():
         for i, a in enumerate(group):
             for b in group[i+1:]:
-                same_req = requisition(a) == requisition(b)
+                same_provider=a['id'].split(':',1)[0]==b['id'].split(':',1)[0]
+                same_req=same_provider and (str(a.get('provider_job_id') or a['id'].split(':',2)[-1])==str(b.get('provider_job_id') or b['id'].split(':',2)[-1]) or a.get('employer_internal_job_id') and a.get('employer_internal_job_id')==b.get('employer_internal_job_id'))
+                shared_hr=same_provider and a.get('employer_requisition_id') and a.get('employer_requisition_id')==b.get('employer_requisition_id')
                 ta, tb = set(a['_identity_title'].split()), set(b['_identity_title'].split())
                 title_close = bool(ta | tb) and len(ta & tb)/len(ta | tb) >= .85
-                if not same_req and not title_close:
+                if not same_req and not shared_hr and not title_close:
                     continue
                 sa, sb = set(a.get('description_signature', [])), set(b.get('description_signature', []))
                 near = min(a.get('description_words', 0), b.get('description_words', 0)) >= 80 and bool(sa | sb) and len(sa & sb) / len(sa | sb) >= .90
                 # Same title alone is never enough. Different IDs stay separate even for identical text.
-                if same_req or (near and a['location'].casefold() == b['location'].casefold()):
+                if same_req or shared_hr or (near and a['location'].casefold() == b['location'].casefold()):
                     for one, other in [(a, b), (b, a)]:
                         one['related_ids'].append(other['id'])
                         one['duplicate_state'] = 'Exact requisition alias; review history' if same_req else 'Possible repost / duplicate; distinct requisitions retained'
     by_id={j['id']:j for j in jobs}
     for j in jobs:
-        for alias in j.get('aliases',[]):
+        for alias in j.get('aliases',[]) if j.get('identity_version')==3 else []:
             other=by_id.get(alias)
             if other and other is not j:
                 j['related_ids']=list(dict.fromkeys(j['related_ids']+[alias]))
