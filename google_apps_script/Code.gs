@@ -191,7 +191,7 @@ function deferred(row, now) {
 
 function ready(row, now=new Date(), appliedIds=new Set()) {
   const related = String(row[29] || '').split(' | ');
-  return row[0] === 'Not Applied' && row[33] === true && Number(row[9]) >= 55 && row[23] === 'Apply' && row[26] === 'Verified active' &&
+  return !/manufacturing|production|process|industrial|tooling|factory automation|supplier development|welding|sourcing|procurement|construction|HVAC|technician|field service/i.test(row[5]) && row[0] === 'Not Applied' && row[33] === true && Number(row[9]) >= 55 && row[23] === 'Apply' && row[26] === 'Verified active' &&
     ageHours(row[27], now) <= 36 && ageHours(row[27], now) >= -1 && row[16] === 'Seen in latest search' &&
     !/Deprioritized|Location review/.test(row[8]) && !deferred(row, now) &&
     !related.some(id => appliedIds.has(id)) && !/Possible repost|Exact requisition alias/.test(row[30]);
