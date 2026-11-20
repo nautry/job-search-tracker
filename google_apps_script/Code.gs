@@ -3,7 +3,7 @@
 const HEADERS = ['Status','Applied date','Follow-up','Notes','Company','Job title','Location','Role fit','Location fit','Priority','Experience','Salary','Flags','Why match','Link','Job ID','Availability','First seen','Last seen','Source','Employer posted','Posting age (days)','Recency points','Recommendation','May 2027 eligibility','Fit reason','Availability state','Active confirmed','Verification detail','Related posting IDs','Duplicate review','Resume variant','Verified at','Queue eligible','Deferred until'];
 const STATUSES = ['Not Applied','Applied','Interviewing','Offer','Rejected','Not Interested','Withdrawn'];
 const QUEUE_HEADERS = ['Assignment','Recommendation','Company','Job / employer link','Location','Priority','Employer posted','Experience / May 2027 eligibility','Availability / duplicate check','Resume','Reason / next check','Record'];
-const SCRIPT_VERSION = '2026-11-19-practical-v3';
+const SCRIPT_VERSION = '2026-11-19-dashboard-v4';
 const DECISIONS = ['Recommended','Stretch','Hold','Closed','Duplicate','Ineligible'];
 const SOURCE_HEADERS = ['Company','Status','Collected','Matched','Checked at','Scope','Error','Careers URL','Context'];
 
@@ -38,7 +38,7 @@ function autoFields(j) {
     postingDate(j.posted_at), j.posting_age ?? 'Unknown', Number(j.recency_points || 0),
     DECISIONS.includes(j.category) ? j.category : 'Hold',
     textCell([j.start_eligibility || 'Timing not stated',...(j.caveats||[]).filter(c=>!c.includes('timing')&&!c.includes('start date'))].join(' | ').slice(0,200)),
-    textCell(fitSummary(j)), textCell(j.availability_state || 'Unverified'), postingDate(j.last_confirmed_active), textCell(j.verification_detail || 'Employer URL not verified'), textCell((j.related_ids || []).join(' | ')), textCell(j.duplicate_state || ''), textCell(j.resume_variant || 'Design'), postingDate(j.availability_checked_at), j.queue_eligible === true];
+    textCell(fitSummary(j)), textCell(j.availability_state || 'Unverified'), postingDate(j.last_confirmed_active), textCell(j.verification_detail || 'Employer URL not verified'), textCell((j.related_ids || []).join(' | ')), textCell(j.duplicate_state || ''), textCell(resumeLabel(j.resume_variant)), postingDate(j.availability_checked_at), j.queue_eligible === true];
 }
 
 function postingDate(value) {
@@ -128,9 +128,8 @@ function syncJobs() {
     sh.getRange(2,35,last-1,1).setNumberFormat('mm/dd/yy');
     sh.getRange(2,28,last-1,1).setNumberFormat('mmm d, yyyy hh:mm');
     sh.getRange(2,33,last-1,1).setNumberFormat('mmm d, yyyy hh:mm');
-    sh.getRange(2,1,last-1,1).setDataValidation(SpreadsheetApp.newDataValidation().requireValueInList(STATUSES,true).setAllowInvalid(false).build());
-    sh.getRange(2,2,last-1,2).setNumberFormat('mm/dd/yy');
-    sh.getRange(2,18,last-1,2).setNumberFormat('mm/dd/yy');
+    // Preserve native table dropdowns and typed DATE columns (A:D and R:S).
+    // Reapplying range validation/number formats to typed columns can abort sync.
     sh.getRange(2,21,last-1,1).setNumberFormat('mmm d, yyyy');
     const values = feed.source_status.map(s=>[s.company,s.status,s.collected,s.matched,new Date(s.checked_at),s.scope,s.error || '',s.careers_url,s.context]);
     writeSourceStatus(ss, values);
@@ -147,6 +146,8 @@ function syncJobs() {
     PropertiesService.getDocumentProperties().setProperty('priorityQueueLimit', String(feed.preferences?.priority_queue_limit || 24));
     PropertiesService.getDocumentProperties().setProperty('dailyTarget', String(feed.preferences?.daily_target || 3));
     refreshViews();
+    cfg.getRange('B23').setValue('Three Recommended daily; capacity five. Priority Queue: up to 24 Apply / Stretch / Needs Review, two per employer.');
+    cfg.getRange('B24').setValue('Apply = Recommended; Needs Review = Hold / verification needed. Missing May 2027 timing is a caveat, not confirmed eligibility.');
     cfg.getRange('B25').setValue('Bound script '+SCRIPT_VERSION+'; successful sync '+new Date().toISOString());
     cfg.getRange('B28').setValue('Practical screening active; existing syncJobs trigger retained.');
   } catch(e) {
@@ -240,8 +241,17 @@ function ageHours(value, now=new Date()) {
 
 function deferred(row,now){const day=calendarDate(row[34]);return !!day&&day>=localDay(now);}
 
+function relatedIds(row){return String(row[29]||'').split(' | ').filter(Boolean);}
+function blockedOpportunityIds(rows,now=new Date()){
+  return new Set(rows.filter(r=>r[0]!=='Not Applied'||deferred(r,now)).map(r=>String(r[15])));
+}
+function resumeLabel(value){return !value||value==='Design'?'Mechanical Design':value;}
+function queueLabel(row,now=new Date(),blocked=new Set()){
+  return ready(row,now,blocked)?'Apply':row[23]==='Stretch'?'Stretch':'Needs Review';
+}
+
 function ready(row, now=new Date(), appliedIds=new Set()) {
-  const related = String(row[29] || '').split(' | ');
+  const related = relatedIds(row);
   return !/manufacturing|production|process|industrial|tooling|factory automation|supplier development|welding|sourcing|procurement|construction|HVAC|technician|field service/i.test(row[5]) && row[0] === 'Not Applied' && row[33] === true && Number(row[9]) >= 55 && row[23] === 'Recommended' && row[26] === 'Verified active' &&
     ageHours(row[27], now) <= 72 && ageHours(row[27], now) >= -1  &&
     !/Deprioritized|Location review/.test(row[8]) && !deferred(row, now) &&
@@ -249,16 +259,17 @@ function ready(row, now=new Date(), appliedIds=new Set()) {
 }
 
 function queueCandidates(rows, now=new Date()) {
+  const blocked=blockedOpportunityIds(rows,now);
   return rows.filter(r => r[15] && r[0] === 'Not Applied' && r[33] === true &&
     ['Recommended','Stretch','Hold'].includes(r[23]) && (r[16] === 'Seen in latest search' || r[26] === 'Verified active' && ageHours(r[27],now)<=72) && r[26] !== 'Confirmed closed' && !/manufacturing|production|process|industrial|tooling|factory automation|supplier development|welding|sourcing|procurement|construction|HVAC|technician|field service/i.test(r[5]) && !deferred(r, now) && !/Deprioritized|Location review/.test(r[8]) &&
-    Number(r[9]) >= 55).sort((a,b) => {
-      const rank = r => ready(r, now) ? 0 : r[23] === 'Hold' && (/entry.level|new.grad|early.career|engineer i\b/i.test(r[5]) || /^(0|1)\+/.test(r[10])) ? 1 : r[23] === 'Stretch' ? 2 : 3;
+    Number(r[9]) >= 55 && !relatedIds(r).some(id=>blocked.has(id)) && !/Exact requisition alias/.test(r[30])).sort((a,b) => {
+      const rank = r => ready(r, now,blocked) ? 0 : r[23] === 'Hold' && (/entry.level|new.grad|early.career|engineer i\b/i.test(r[5]) || /^(0|1)\+/.test(r[10])) ? 1 : r[23] === 'Stretch' ? 2 : 3;
       return rank(a)-rank(b) || b[9]-a[9] || String(a[15]).localeCompare(String(b[15]));
     });
 }
 
 function shortlist(rows, limit=5, perCompany=2, defenseIds=new Set(), defenseTarget=.725, now=new Date()) {
-  const applied = new Set(rows.filter(r => r[0] !== 'Not Applied').map(r => String(r[15])));
+  const applied = blockedOpportunityIds(rows,now);
   const candidates = rows.filter(r => ready(r, now, applied)).sort((a,b) => b[9]-a[9] || String(a[15]).localeCompare(String(b[15])));
   const selected=[], counts=new Map();
   const add=r => {const company=String(r[4]).toLowerCase();const n=counts.get(company)||0;
@@ -276,7 +287,7 @@ function dailyModel(rows, previous={}, options={}) {
   const now=options.now||new Date();
   const day=options.day||localDay(now);
   const target=Math.min(5,options.target||3), perCompany=2;
-  const applied=new Set(rows.filter(r=>r[0]!=='Not Applied').map(r=>String(r[15])));
+  const applied=blockedOpportunityIds(rows,now);
   const allReady=rows.filter(r=>ready(r,now,applied));
   const byId=new Map(allReady.map(r=>[String(r[15]),r]));
   const selected=[], counts=new Map();
@@ -289,7 +300,7 @@ function dailyModel(rows, previous={}, options={}) {
   const queue=[...selected], seen=new Set(selected.map(r=>String(r[15])));
   for(const r of queueCandidates(rows,now)){
     if(queue.length>=Math.min(25,options.queueLimit||24))break;
-    if(seen.has(String(r[15]))||(counts.get(r[4])||0)>=perCompany)continue;
+    if(seen.has(String(r[15]))||relatedIds(r).some(id=>seen.has(id))||queue.some(q=>relatedIds(q).includes(String(r[15])))||(counts.get(r[4])||0)>=perCompany)continue;
     seen.add(String(r[15]));queue.push(r);counts.set(r[4],(counts.get(r[4])||0)+1);
   }
   const fallback=selected.length?[]:queue.filter(r=>['Hold','Stretch'].includes(r[23])).slice(0,3);
@@ -320,9 +331,9 @@ function refreshDashboard(ss, rows=[], model={daily:[],reason:''}) {
   sh.getRange(1,1).setValue('Daily Dashboard');
   sh.getRange(2,1).setValue('=IF(NOW()-Settings!B3>1.5,"STALE FEED — recommendations paused","Feed current")&" | Collected "&TEXT(Settings!B3,"mmm d hh:mm")&" | Synced "&TEXT(Settings!B4,"mmm d hh:mm")');
   sh.getRange(3,1).setValue('Open posting → check qualifications → choose resume → apply → record in Jobs A:D. Job search menu → Refresh dashboard / refill. Optional defer: Jobs AI.');
-  sh.getRange(4,1,1,9).setValues([['Today completed',todayFormula(),'Total applications',totalApplicationsFormula(),'Interviewing',statusFormula('Interviewing'),'Offer',statusFormula('Offer'),'Dates shown in America/Indianapolis']]);
-  sh.getRange(5,1,1,9).setValues([['Rejected',statusFormula('Rejected'),'Applied',statusFormula('Applied'),'Follow-ups due',followupsFormula(),'Not Applied',statusFormula('Not Applied'),'Edit Jobs A:D to record an application']]);
-  sh.getRange(6,1).setValue('=IF(COUNTIF(Sources!B2:B1000,"failed")+COUNTIF(Sources!B2:B1000,"partial")>0,"Source warning: "&TEXTJOIN(", ",TRUE,FILTER(Sources!A2:A1000,Sources!B2:B1000<>"ok",Sources!A2:A1000<>"")),"All employer sources collected successfully")');
+  sh.getRange(4,1,1,9).setValues([['Today completed',todayFormula(),'Total applications',totalApplicationsFormula(),'Interviewing',statusFormula('Interviewing'),'Offer',statusFormula('Offer'),'Indianapolis time']]);
+  sh.getRange(5,1,1,9).setValues([['Rejected',statusFormula('Rejected'),'Applied',statusFormula('Applied'),'Follow-ups due',followupsFormula(),'Not Applied',statusFormula('Not Applied'),'Record in Jobs A:D']]);
+  sh.getRange(6,1).setValue('=IFERROR("Source warning: "&TEXTJOIN(", ",TRUE,FILTER(Sources!A2:A1000,Sources!A2:A1000<>"",((Sources!B2:B1000<>"ok")+IFERROR(NOW()-Sources!E2:E1000>1.5,TRUE))>0)),"All employer sources current and collected successfully")');
   sh.getRange(7,1).setValue(model.daily.length ? 'Applications for Today — '+model.daily.length+' Recommended. Default target: three; Job search menu offers up to five. '+(model.reason||'Timing caveats are informational; decide whether the work interests you.') : 'No verified recommendations. '+(model.reason||'Automatic checks pending.')+' Showing up to three candidates only, with explicit blockers.');
   sh.getRange(8,1,1,9).setValues([['Company','Job / employer link','Location','Priority / fit','Employer posted','Resume','Recommendation / uncertainty','Why this role','Record']]);
   const jobs=ss.getSheetByName('Jobs'), index=indexRows(rows);
@@ -330,7 +341,7 @@ function refreshDashboard(ss, rows=[], model={daily:[],reason:''}) {
   const link=r=>'=HYPERLINK("'+String(r[14]).replace(/"/g,'""')+'","'+String(r[5]).replace(/"/g,'""')+'")';
   const displayed=model.daily.length?model.daily:(model.fallback||[]);
   if(displayed.length)sh.getRange(9,1,displayed.length,9).setValues(displayed.map(r=>[
-    textCell(r[4]),link(r),textCell(String(r[6]).length>100?'Multiple locations; see posting':r[6]),r[9]+' / '+r[7],r[20]||'Unknown',textCell(r[31]),(model.daily.length?'Recommended — ':'Candidate only / '+r[23]+' — ')+textCell(r[24]),textCell(model.daily.length?r[25]:(r[28]||r[25])),track(r)]));
+    textCell(r[4]),link(r),textCell(String(r[6]).length>100?'Multiple locations; see posting':r[6]),r[9]+' / '+r[7],r[20]||'Unknown',textCell(resumeLabel(r[31])),(model.daily.length?'Recommended — ':'Candidate only / '+r[23]+' — ')+textCell(r[24]),textCell(model.daily.length?r[25]:(r[28]||r[25])),track(r)]));
   sh.getRange(9,5,5,1).setNumberFormat('mmm d, yyyy');
   sh.getRange(15,1).setValue('Follow-ups due / overdue — records and dates preserved');
   sh.getRange(16,1,1,9).setValues([['Company','Role','Employer posted','Status','Follow-up due','Notes / action','','','Record']]);
@@ -363,14 +374,15 @@ function refreshViews(options={}) {
   if(!feedFresh){model.daily=[];model.ids=[];model.fallback=model.queue.slice(0,3);model.reason='Feed is over 36 hours old or missing; wait for successful collection / sync.';}
   props.setProperty('dailySelection',JSON.stringify({day:model.day,ids:model.ids}));
   const view=ensureView(ss,'Priority Queue','Apply Next');
-  view.getRange(1,1,60,12).clearContent();
+  const queueLayout=view.getRange(1,1,60,12);if(queueLayout.breakApart)queueLayout.breakApart();
+  queueLayout.clearContent();
   view.getRange(1,1).setValue('Priority Queue');
-  view.getRange(2,1).setValue(model.queue.length+' opportunities. Today rows are assigned to Daily Dashboard; Backlog is remaining work. Stretch and Hold are not verified recommendations.');
+  view.getRange(2,1).setValue(model.queue.length+' opportunities. Today = Daily Dashboard; Backlog = remaining work. Apply = Recommended; Needs Review = Hold / verification needed. Stretch has a qualifications gap.');
   view.getRange(3,1,1,QUEUE_HEADERS.length).setValues([QUEUE_HEADERS]);
-  const index=indexRows(rows),assigned=new Set(model.ids);
-  const values=model.queue.map(r=>[assigned.has(String(r[15]))?'Today':'Backlog',feedFresh&&ready(r)?'Recommended':r[23]==='Stretch'?'Stretch':'Hold',textCell(r[4]),
+  const index=indexRows(rows),assigned=new Set(model.ids),blocked=blockedOpportunityIds(rows);
+  const values=model.queue.map(r=>[assigned.has(String(r[15]))?'Today':'Backlog',feedFresh?queueLabel(r,new Date(),blocked):'Needs Review',textCell(r[4]),
     '=HYPERLINK("'+String(r[14]).replace(/"/g,'""')+'","'+String(r[5]).replace(/"/g,'""')+'")',textCell(String(r[6]).length>100?'Multiple US locations; see posting':r[6]),r[9],r[20]||'Unknown',textCell(r[10]+' | '+r[24]),
-    textCell((ageHours(r[27])>72&&r[26]==='Verified active'?'Stale':r[26]||'Unverified')+' | '+(r[30]||'')+' | '+(r[32] instanceof Date?r[32].toISOString():'Check pending')),textCell(r[31]),textCell(r[25]+' | '+(r[23]==='Recommended'?'Confirm personal qualifications / authorization':r[24])),
+    textCell((ageHours(r[27])>72&&r[26]==='Verified active'?'Stale':r[26]||'Unverified')+' | '+(r[30]||'')+' | '+(r[32] instanceof Date?r[32].toISOString():'Check pending')),textCell(resumeLabel(r[31])),textCell(r[25]+' | '+(r[23]==='Recommended'?'Confirm personal qualifications / authorization':r[24])),
     '=HYPERLINK("'+ss.getUrl()+'#gid='+jobs.getSheetId()+'&range=A'+index.get(String(r[15]))+'","Record / defer")']);
   if(values.length){view.getRange(4,1,values.length,12).setValues(values);view.getRange(4,7,values.length,1).setNumberFormat('mmm d, yyyy');}
   refreshDashboard(ss,rows,model);
@@ -385,7 +397,7 @@ function formatViews(ss,model={daily:[]}) {
     sh.getRange(1,1,35,widths.length).setWrap(true).setVerticalAlignment('middle');
     sh.getRange(name==='Daily Dashboard'?8:3,1,1,widths.length).setFontWeight('bold').setBackground('#e8eaed');
     if(name==='Daily Dashboard'){
-      sh.setRowHeights(1,35,26);sh.setRowHeight(4,44);sh.setRowHeight(5,36);
+      sh.setRowHeights(1,35,26);sh.setRowHeight(4,64);sh.setRowHeight(5,52);
       sh.getRange(1,1).setFontSize(14).setFontWeight('bold');
       sh.getRange(16,1,1,9).setFontWeight('bold').setBackground('#e8eaed');
       for(const r of [1,2,3,6,7,15,29])sh.getRange(r,1,1,9).mergeAcross();
@@ -406,4 +418,4 @@ function installDailyTrigger() {
   ScriptApp.newTrigger('syncJobs').timeBased().everyDays(1).atHour(15).inTimezone('Etc/UTC').create();
 }
 
-if (typeof module !== 'undefined') module.exports = {autoFields,validateFeed,indexRows,shortlist,textCell,statusFormula,HEADERS,STATUSES,QUEUE_HEADERS,ready,dailyModel,queueCandidates,ageHours,localDay,calendarDate,submittedToday,saveChunks,loadChunks,verifyHint,verifyUnapplied,DECISIONS,todayFormula,totalApplicationsFormula};
+if (typeof module !== 'undefined') module.exports = {autoFields,validateFeed,indexRows,shortlist,textCell,statusFormula,HEADERS,STATUSES,QUEUE_HEADERS,ready,dailyModel,queueCandidates,ageHours,localDay,calendarDate,submittedToday,saveChunks,loadChunks,verifyHint,verifyUnapplied,DECISIONS,todayFormula,totalApplicationsFormula,queueLabel,resumeLabel};

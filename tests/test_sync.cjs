@@ -125,3 +125,39 @@ assert.equal(shortlist([localDefer],5,2,new Set(),.725,new Date('2026-11-19T04:3
 assert.equal(ctx.deferred(localDefer,new Date('2026-11-19T04:30:00Z')),true);
 assert.equal(ctx.deferred(localDefer,new Date('2026-11-19T05:00:00Z')),false);
 console.log('Deferral local-day boundary regression passed.');
+
+// Queue exclusions must match daily exclusions, including history-linked reposts.
+for(const status of ['Applied','Interviewing','Offer','Rejected','Withdrawn','Not Interested']){
+  const history=Object.assign(candidate('history'),{0:status});
+  const repeated=Object.assign(candidate('repeat'),{23:'Hold',29:'history',30:'Possible repost / duplicate; distinct requisitions retained'});
+  assert.equal(dailyModel([history,repeated],{},{now}).queue.length,0);
+}
+const postponed=Object.assign(candidate('postponed'),{34:new Date(now.getTime()+86400000)});
+const postponedAlias=Object.assign(candidate('postponed-alias'),{29:'postponed'});
+assert.equal(dailyModel([postponed,postponedAlias],{},{now}).queue.length,0);
+const similarA=Object.assign(candidate('similar-a','One',90),{23:'Hold',29:'similar-b',30:'Possible repost / duplicate; distinct requisitions retained'});
+const similarB=Object.assign(candidate('similar-b','One',89),{23:'Hold',29:'similar-a',30:similarA[30]});
+assert.equal(dailyModel([similarA,similarB],{},{now}).queue.length,1);
+assert.equal(dailyModel([candidate('legit-a'),candidate('legit-b')],{},{now}).queue.length,2);
+assert.equal(ctx.module.exports.queueLabel(candidate('apply'),now),'Apply');
+assert.equal(ctx.module.exports.queueLabel(Object.assign(candidate('stretch'),{23:'Stretch'}),now),'Stretch');
+assert.equal(ctx.module.exports.queueLabel(Object.assign(candidate('hold'),{23:'Hold'}),now),'Needs Review');
+assert.equal(ctx.module.exports.resumeLabel('Design'),'Mechanical Design');
+
+// Existing Jobs native DATE/dropdown columns reject range-level reformatting.
+const nativeGetRange=sheets.Jobs.getRange;
+sheets.Jobs.getRange=function(r,c,n,m){
+  const range=nativeGetRange.call(this,r,c,n,m);
+  if([2,18].includes(c))range.setNumberFormat=()=>{throw new Error('Native typed DATE format cannot be overridden')};
+  if(c===1)range.setDataValidation=()=>{throw new Error('Native dropdown validation cannot be overridden')};
+  return range;
+};
+ctx.UrlFetchApp.fetch=()=>({getResponseCode:()=>200,getContentText:()=>JSON.stringify({...feed,generated_at:new Date().toISOString()})});
+ctx.syncJobs();
+assert.equal(sheets.Jobs.rows[1][0],'Offer');
+assert.equal(sheets.Jobs.rows[1][1],'10/25/26');
+assert.equal(sheets.Jobs.rows[1][2],'11/16/26');
+assert.equal(sheets.Jobs.rows[1][3],'Private note');
+assert.ok(sheets['Daily Dashboard'].rows[5][0].includes('Sources!E2:E1000'));
+assert.equal(sheets['Daily Dashboard'].rows[7][4],'Employer posted');
+console.log('Dashboard v4 regressions passed: queue history/repost guards, distinct positions, display labels, typed-column-safe synchronization and source freshness.');

@@ -1,13 +1,17 @@
 import unittest
 from unittest.mock import patch
 from urllib.error import HTTPError, URLError
-from src.lifecycle import normalize_url, identity_evidence, deduplicate, mark_related, availability
+from src.lifecycle import normalize_url, identity_evidence, deduplicate, mark_related, availability, resume_variant
 from src.puller import verify_posting, reconcile
 
 def job(id='greenhouse:test:1', **kw):
     return dict(id=id, company='Employer', source='test', title='Mechanical Engineer', location='Austin, TX', url='https://job-boards.greenhouse.io/test/jobs/'+id.split(':')[-1], priority=80, **kw)
 
 class Lifecycle(unittest.TestCase):
+    def test_resume_names_match_daily_workflow(self):
+        self.assertEqual(resume_variant({**job(),'title':'Mechanical Design Engineer'}),'Mechanical Design')
+        self.assertEqual(resume_variant({**job(),'title':'Mechanical Test Engineer'}),'Test/R&D')
+        self.assertEqual(resume_variant({**job(),'title':'Mechatronics Engineer'}),'Mechatronics')
     def test_tracking_removed_identity_preserved(self):
         self.assertEqual(normalize_url('https://job-boards.greenhouse.io/test/jobs/123?utm_source=x&gh_jid=123&gh_src=y#apply'), 'https://job-boards.greenhouse.io/test/jobs/123')
         self.assertIn('jobId=5',normalize_url('https://example.com/careers?jobId=5&utm_campaign=x'))

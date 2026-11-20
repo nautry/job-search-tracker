@@ -149,4 +149,4 @@ def resume_variant(job):
         return 'Mechatronics'
     if re.search(r'test|validation|verification|r&d|research|performance|reliability', title):
         return 'Test/R&D'
-    return 'Design'
+    return 'Mechanical Design'
