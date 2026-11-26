@@ -376,7 +376,9 @@ def apply_recency_policy(jobs,prefs,timestamp):
     """Original employer publication date gates queues; preserve every job record."""
     from zoneinfo import ZoneInfo
     limit=int(prefs.get('max_posting_age_days',45))
-    tz=ZoneInfo(prefs.get('reporting_timezone','America/Indianapolis'))
+    zone=prefs.get('reporting_timezone','America/Indianapolis')
+    # Canonical IANA name is available even when a runner omits backward aliases.
+    tz=ZoneInfo('America/Indiana/Indianapolis' if zone=='America/Indianapolis' else zone)
     asof=datetime.fromisoformat(timestamp.replace('Z','+00:00')).astimezone(tz).date()
     for j in jobs:
         value=j.get('posted_at') or ''
