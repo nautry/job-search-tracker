@@ -15,6 +15,8 @@ Spend approximately **30–60 minutes**, normally submitting 1–3 worthwhile ap
 
 Priority Queue uses **Apply** for a currently application-ready Recommended record and **Needs Review** for Hold or unresolved verification; **Stretch** stays separate. Today rows are already assigned to the dashboard; Backlog rows are additional work. Related reposts linked to submitted, dismissed or deferred records are withheld, and suspected equivalent listings occupy at most one queue slot. All original records remain in Jobs.
 
-If updating a Jobs status empties the dashboard despite suitable candidates, check Settings!B25. The installed script must report **2026-11-19-dashboard-v4** or newer after a successful sync. A pending preview does not prove deployment; install the repository Code.gs in the existing bound project and run syncJobs once. Reuse the existing daily trigger.
+Active views use a **rolling 45-calendar-day employer posting window**. Unknown or future posting dates are withheld; first seen and source refresh never substitute for publication. Older Jobs records and application follow-ups remain available. Confirmed exact aliases have one representative; redundant, unannotated Not Applied rows are collapsed, never deleted. Similar titles with different ATS identities remain separate or explicitly suspected.
+
+The feed enforces the age cutoff for the existing bound script. Install repository Code.gs and run syncJobs once to add immediate local cutoff checks and automatic alias-row collapsing. Settings!B25 then reports **2026-11-25-recency-dedup-v5**. A pending preview does not prove deployment. Reuse the existing daily trigger. Role-fit weights and exclusions have not changed in this iteration.
 
 Product-use flags have zero ranking adjustment. You decide whether the actual program is acceptable. The soft 70–75% defense/dual-use preference never pads the queue.

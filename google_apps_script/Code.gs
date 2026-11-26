@@ -3,7 +3,8 @@
 const HEADERS = ['Status','Applied date','Follow-up','Notes','Company','Job title','Location','Role fit','Location fit','Priority','Experience','Salary','Flags','Why match','Link','Job ID','Availability','First seen','Last seen','Source','Employer posted','Posting age (days)','Recency points','Recommendation','May 2027 eligibility','Fit reason','Availability state','Active confirmed','Verification detail','Related posting IDs','Duplicate review','Resume variant','Verified at','Queue eligible','Deferred until'];
 const STATUSES = ['Not Applied','Applied','Interviewing','Offer','Rejected','Not Interested','Withdrawn'];
 const QUEUE_HEADERS = ['Assignment','Recommendation','Company','Job / employer link','Location','Priority','Employer posted','Experience / May 2027 eligibility','Availability / duplicate check','Resume','Reason / next check','Record'];
-const SCRIPT_VERSION = '2026-11-19-dashboard-v4';
+const SCRIPT_VERSION = '2026-11-25-recency-dedup-v5';
+const MAX_POSTING_AGE_DAYS = 45;
 const DECISIONS = ['Recommended','Stretch','Hold','Closed','Duplicate','Ineligible'];
 const SOURCE_HEADERS = ['Company','Status','Collected','Matched','Checked at','Scope','Error','Careers URL','Context'];
 
@@ -149,7 +150,8 @@ function syncJobs() {
     cfg.getRange('B23').setValue('Three Recommended daily; capacity five. Priority Queue: up to 24 Apply / Stretch / Needs Review, two per employer.');
     cfg.getRange('B24').setValue('Apply = Recommended; Needs Review = Hold / verification needed. Missing May 2027 timing is a caveat, not confirmed eligibility.');
     cfg.getRange('B25').setValue('Bound script '+SCRIPT_VERSION+'; successful sync '+new Date().toISOString());
-    cfg.getRange('B28').setValue('Practical screening active; existing syncJobs trigger retained.');
+    cfg.getRange('B27').setValue('Daily / Priority Queue: original employer publication within '+MAX_POSTING_AGE_DAYS+' calendar days; unknown dates withheld. Older Jobs and follow-ups retained.');
+    cfg.getRange('B28').setValue('Recency / duplicate policy active; existing syncJobs trigger retained.');
   } catch(e) {
     SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Settings').getRange('B5').setValue('Sync failed: '+e.message);
     throw e;
@@ -225,7 +227,8 @@ function verifyHint(hint){
 
 function verifyUnapplied(ss,rows,hints,budget=8,now=new Date()){
   const byId=new Map(hints.map(h=>[h.id,h]));const sh=ss.getSheetByName('Jobs');
-  const candidates=rows.map((r,i)=>({r,i,h:byId.get(String(r[15]))})).filter(o=>o.h&&o.h.qualification_category==='Recommended'&&o.r[0]==='Not Applied'&&!deferred(o.r,now)&&!o.r[29]&&o.r[23]!=='Ineligible'&&o.r[23]!=='Closed'&&(o.r[26]!=='Verified active'||ageHours(o.r[27],now)>24))
+  const blocked=blockedOpportunityIds(rows,now);
+  const candidates=rows.map((r,i)=>({r,i,h:byId.get(String(r[15]))})).filter(o=>o.h&&o.h.qualification_category==='Recommended'&&postingWindow(o.r,now).eligible&&o.r[0]==='Not Applied'&&!deferred(o.r,now)&&(!o.r[29]||/^Canonical requisition;/.test(o.r[30]))&&!relatedIds(o.r).some(id=>blocked.has(id))&&o.r[23]!=='Ineligible'&&o.r[23]!=='Closed'&&(o.r[26]!=='Verified active'||ageHours(o.r[27],now)>24))
     .sort((a,b)=>b.r[9]-a.r[9]).slice(0,budget);
   for(const {r,i,h} of candidates){const checked=verifyHint(h);r[26]=checked.state;r[28]=checked.reason;r[32]=now;
     if(checked.state==='Verified active'){r[27]=now;r[23]='Recommended';}else r[23]=checked.state==='Confirmed closed'?'Closed':'Hold';
@@ -241,6 +244,27 @@ function ageHours(value, now=new Date()) {
 
 function deferred(row,now){const day=calendarDate(row[34]);return !!day&&day>=localDay(now);}
 
+function postingWindow(row,now=new Date()){
+  const day=calendarDate(row[20]),today=localDay(now);
+  if(!day)return {eligible:false,age:null,reason:'Employer posting date unknown'};
+  const age=Math.round((Date.parse(today+'T00:00:00Z')-Date.parse(day+'T00:00:00Z'))/86400000);
+  return {eligible:Number.isFinite(age)&&age>=0&&age<=MAX_POSTING_AGE_DAYS,age,reason:age<0?'Employer posting date is in the future':age>MAX_POSTING_AGE_DAYS?'Employer posting is older than '+MAX_POSTING_AGE_DAYS+' days':'Within '+MAX_POSTING_AGE_DAYS+' days'};
+}
+
+function refreshDuplicateVisibility(ss,rows,props){
+  const sh=ss.getSheetByName('Jobs');
+  if(!sh.hideRows||!sh.showRows)return;
+  const previous=new Set(loadChunks(props,'hiddenDuplicateIds'));
+  const hidden=new Set();
+  rows.forEach((r,i)=>{
+    // Collapse redundant aliases, but keep any manually annotated record visible.
+    const alias=/^Exact requisition alias; canonical /.test(r[30])&&r[0]==='Not Applied'&&![r[1],r[2],r[3],r[34]].some(Boolean);
+    if(alias){hidden.add(String(r[15]));if(!previous.has(String(r[15])))sh.hideRows(i+2);}
+    else if(previous.has(String(r[15])))sh.showRows(i+2);
+  });
+  saveChunks(props,'hiddenDuplicateIds',[...hidden]);
+}
+
 function relatedIds(row){return String(row[29]||'').split(' | ').filter(Boolean);}
 function blockedOpportunityIds(rows,now=new Date()){
   return new Set(rows.filter(r=>r[0]!=='Not Applied'||deferred(r,now)).map(r=>String(r[15])));
@@ -252,7 +276,7 @@ function queueLabel(row,now=new Date(),blocked=new Set()){
 
 function ready(row, now=new Date(), appliedIds=new Set()) {
   const related = relatedIds(row);
-  return !/manufacturing|production|process|industrial|tooling|factory automation|supplier development|welding|sourcing|procurement|construction|HVAC|technician|field service/i.test(row[5]) && row[0] === 'Not Applied' && row[33] === true && Number(row[9]) >= 55 && row[23] === 'Recommended' && row[26] === 'Verified active' &&
+  return postingWindow(row,now).eligible && !/manufacturing|production|process|industrial|tooling|factory automation|supplier development|welding|sourcing|procurement|construction|HVAC|technician|field service/i.test(row[5]) && row[0] === 'Not Applied' && row[33] === true && Number(row[9]) >= 55 && row[23] === 'Recommended' && row[26] === 'Verified active' &&
     ageHours(row[27], now) <= 72 && ageHours(row[27], now) >= -1  &&
     !/Deprioritized|Location review/.test(row[8]) && !deferred(row, now) &&
     !related.some(id => appliedIds.has(id)) && !/Possible repost|Exact requisition alias/.test(row[30]);
@@ -260,7 +284,7 @@ function ready(row, now=new Date(), appliedIds=new Set()) {
 
 function queueCandidates(rows, now=new Date()) {
   const blocked=blockedOpportunityIds(rows,now);
-  return rows.filter(r => r[15] && r[0] === 'Not Applied' && r[33] === true &&
+  return rows.filter(r => postingWindow(r,now).eligible && r[15] && r[0] === 'Not Applied' && r[33] === true &&
     ['Recommended','Stretch','Hold'].includes(r[23]) && (r[16] === 'Seen in latest search' || r[26] === 'Verified active' && ageHours(r[27],now)<=72) && r[26] !== 'Confirmed closed' && !/manufacturing|production|process|industrial|tooling|factory automation|supplier development|welding|sourcing|procurement|construction|HVAC|technician|field service/i.test(r[5]) && !deferred(r, now) && !/Deprioritized|Location review/.test(r[8]) &&
     Number(r[9]) >= 55 && !relatedIds(r).some(id=>blocked.has(id)) && !/Exact requisition alias/.test(r[30])).sort((a,b) => {
       const rank = r => ready(r, now,blocked) ? 0 : r[23] === 'Hold' && (/entry.level|new.grad|early.career|engineer i\b/i.test(r[5]) || /^(0|1)\+/.test(r[10])) ? 1 : r[23] === 'Stretch' ? 2 : 3;
@@ -304,7 +328,8 @@ function dailyModel(rows, previous={}, options={}) {
     seen.add(String(r[15]));queue.push(r);counts.set(r[4],(counts.get(r[4])||0)+1);
   }
   const fallback=selected.length?[]:queue.filter(r=>['Hold','Stretch'].includes(r[23])).slice(0,3);
-  const cause=queue.filter(r=>r[23]==='Hold'&&r[26]!=='Verified active').length ? 'Application-enabled verification is the main remaining blocker; automatic rechecks are prioritized.' : queue.some(r=>r[23]==='Stretch') ? 'Remaining roles have meaningful qualification gaps; no weak roles added to meet a quota.' : 'No suitable unapplied roles currently meet the evidence checks.';
+  const ageExcluded=rows.filter(r=>r[0]==='Not Applied'&&r[33]!==false&&!postingWindow(r,now).eligible).length;
+  const cause=queue.filter(r=>r[23]==='Hold'&&r[26]!=='Verified active').length ? 'Application-enabled verification is the main remaining blocker; automatic rechecks are prioritized.' : queue.some(r=>r[23]==='Stretch') ? 'Remaining recent roles have meaningful qualification gaps; no weak roles added to meet a quota.' : ageExcluded?'Only employer postings within '+MAX_POSTING_AGE_DAYS+' days with known dates qualify; old / unknown dates stay in Jobs.':'No suitable unapplied roles currently meet the evidence checks.';
   return {day,ids:selected.map(r=>String(r[15])),daily:selected,queue,fallback,reason:selected.length<3?cause:''};
 }
 
@@ -334,7 +359,7 @@ function refreshDashboard(ss, rows=[], model={daily:[],reason:''}) {
   sh.getRange(4,1,1,9).setValues([['Today completed',todayFormula(),'Total applications',totalApplicationsFormula(),'Interviewing',statusFormula('Interviewing'),'Offer',statusFormula('Offer'),'Indianapolis time']]);
   sh.getRange(5,1,1,9).setValues([['Rejected',statusFormula('Rejected'),'Applied',statusFormula('Applied'),'Follow-ups due',followupsFormula(),'Not Applied',statusFormula('Not Applied'),'Record in Jobs A:D']]);
   sh.getRange(6,1).setValue('=IFERROR("Source warning: "&TEXTJOIN(", ",TRUE,FILTER(Sources!A2:A1000,Sources!A2:A1000<>"",((Sources!B2:B1000<>"ok")+IFERROR(NOW()-Sources!E2:E1000>1.5,TRUE))>0)),"All employer sources current and collected successfully")');
-  sh.getRange(7,1).setValue(model.daily.length ? 'Applications for Today — '+model.daily.length+' Recommended. Default target: three; Job search menu offers up to five. '+(model.reason||'Timing caveats are informational; decide whether the work interests you.') : 'No verified recommendations. '+(model.reason||'Automatic checks pending.')+' Showing up to three candidates only, with explicit blockers.');
+  sh.getRange(7,1).setValue(model.daily.length ? 'Applications for Today — '+model.daily.length+' Recommended. Employer postings within '+MAX_POSTING_AGE_DAYS+' days; original date required. '+(model.reason||'Default target three; menu offers up to five. May 2027 timing caveats remain.') : 'No verified recommendations. '+(model.reason||'Automatic checks pending.')+' Showing up to three recent candidates only, with explicit blockers.');
   sh.getRange(8,1,1,9).setValues([['Company','Job / employer link','Location','Priority / fit','Employer posted','Resume','Recommendation / uncertainty','Why this role','Record']]);
   const jobs=ss.getSheetByName('Jobs'), index=indexRows(rows);
   const track=r=>'=HYPERLINK("'+ss.getUrl()+'#gid='+jobs.getSheetId()+'&range=A'+index.get(String(r[15]))+'","Record / defer")';
@@ -365,6 +390,7 @@ function refreshViews(options={}) {
   const ss=SpreadsheetApp.getActiveSpreadsheet(),jobs=ss.getSheetByName('Jobs');
   const rows=jobs.getLastRow()>1?jobs.getRange(2,1,jobs.getLastRow()-1,HEADERS.length).getValues():[];
   const props=PropertiesService.getDocumentProperties();
+  refreshDuplicateVisibility(ss,rows,props);
   const previous=JSON.parse(props.getProperty('dailySelection')||'{}');
   if(!options.skipVerification)verifyUnapplied(ss,rows,loadChunks(props,'verificationHints'),8);
   const stamp=ss.getSheetByName('Settings').getRange('B3').getValue();
@@ -377,7 +403,7 @@ function refreshViews(options={}) {
   const queueLayout=view.getRange(1,1,60,12);if(queueLayout.breakApart)queueLayout.breakApart();
   queueLayout.clearContent();
   view.getRange(1,1).setValue('Priority Queue');
-  view.getRange(2,1).setValue(model.queue.length+' opportunities. Today = Daily Dashboard; Backlog = remaining work. Apply = Recommended; Needs Review = Hold / verification needed. Stretch has a qualifications gap.');
+  view.getRange(2,1).setValue(model.queue.length+' opportunities within '+MAX_POSTING_AGE_DAYS+' days; unknown dates withheld. Today = dashboard; Backlog = remaining work. Apply / Stretch / Needs Review; confirmed aliases share one representative.');
   view.getRange(3,1,1,QUEUE_HEADERS.length).setValues([QUEUE_HEADERS]);
   const index=indexRows(rows),assigned=new Set(model.ids),blocked=blockedOpportunityIds(rows);
   const values=model.queue.map(r=>[assigned.has(String(r[15]))?'Today':'Backlog',feedFresh?queueLabel(r,new Date(),blocked):'Needs Review',textCell(r[4]),
@@ -418,4 +444,4 @@ function installDailyTrigger() {
   ScriptApp.newTrigger('syncJobs').timeBased().everyDays(1).atHour(15).inTimezone('Etc/UTC').create();
 }
 
-if (typeof module !== 'undefined') module.exports = {autoFields,validateFeed,indexRows,shortlist,textCell,statusFormula,HEADERS,STATUSES,QUEUE_HEADERS,ready,dailyModel,queueCandidates,ageHours,localDay,calendarDate,submittedToday,saveChunks,loadChunks,verifyHint,verifyUnapplied,DECISIONS,todayFormula,totalApplicationsFormula,queueLabel,resumeLabel};
+if (typeof module !== 'undefined') module.exports = {autoFields,validateFeed,indexRows,shortlist,textCell,statusFormula,HEADERS,STATUSES,QUEUE_HEADERS,ready,dailyModel,queueCandidates,ageHours,localDay,calendarDate,submittedToday,saveChunks,loadChunks,verifyHint,verifyUnapplied,DECISIONS,todayFormula,totalApplicationsFormula,queueLabel,resumeLabel,postingWindow,refreshDuplicateVisibility};

@@ -363,13 +363,31 @@ def finalize_decisions(jobs,timestamp):
         if j.get('availability_state')=='Confirmed closed':category='Closed';reason='Employer confirms closure'
         elif j.get('duplicate_state','').startswith('Exact requisition alias'):category='Duplicate';reason='Same employer requisition; retain linked application history'
         elif q=='Ineligible':category=q;reason=j.get('assessment_reason','Explicit qualification or scope incompatibility')
-        elif j.get('related_ids'):category='Hold';reason='Likely repost/duplicate relationship needs a targeted history check'
+        elif j.get('possible_related_ids',j.get('related_ids') if j.get('duplicate_kind')!='canonical' else []):category='Hold';reason='Likely repost/duplicate relationship needs a targeted history check'
         elif q=='Recommended' and j.get('accepting_applications') and j.get('availability_state')=='Verified active':category=q;reason=j.get('assessment_reason','Practical entry-level fit')
         elif q=='Stretch':category=q;reason=j.get('assessment_reason','Experience disadvantage')
         else:category='Hold';reason=j.get('assessment_reason','Full qualifications not reassessed in this collection') if q!='Recommended' else 'Application-enabled state is awaiting automatic verification'
         j['category']=category;j['decision_reason']=reason
         if category in ('Closed','Duplicate','Ineligible'):j['queue_eligible']=False
         j['decision_version']=2
+    return jobs
+
+def apply_recency_policy(jobs,prefs,timestamp):
+    """Original employer publication date gates queues; preserve every job record."""
+    from zoneinfo import ZoneInfo
+    limit=int(prefs.get('max_posting_age_days',45))
+    tz=ZoneInfo(prefs.get('reporting_timezone','America/Indianapolis'))
+    asof=datetime.fromisoformat(timestamp.replace('Z','+00:00')).astimezone(tz).date()
+    for j in jobs:
+        value=j.get('posted_at') or ''
+        try:
+            published=datetime.fromisoformat(value.replace('Z','+00:00'))
+            day=published.date() if len(value)==10 else published.replace(tzinfo=published.tzinfo or timezone.utc).astimezone(tz).date()
+            age=(asof-day).days
+        except (ValueError,TypeError):age=None
+        j['posting_window_age']=age
+        j['recency_state']='Unknown employer posting date' if age is None else 'Future employer posting date' if age<0 else 'Older than '+str(limit)+' days' if age>limit else 'Within '+str(limit)+' days'
+        if age is None or not 0<=age<=limit:j['queue_eligible']=False
     return jobs
 
 def reconcile(previous, observed, health, timestamp):
@@ -429,7 +447,7 @@ def run(root=ROOT):
         old=old_by_id.get(j['id'],{})
         fresh=old.get('verification_version')==2 and old.get('accepting_applications') and hours_since(old.get('last_confirmed_active'),timestamp)<24
         return (1 if fresh else 0, {'Recommended':0,'Hold':1,'Stretch':2}.get(j['category'],3),-j['priority'],j['id'])
-    candidates=sorted((j for j in observed if j.get('queue_eligible')),key=check_priority)[:max(0,prefs.get('verification_budget',40)-len(missing))]
+    candidates=sorted((j for j in apply_recency_policy(observed,prefs,timestamp) if j.get('queue_eligible')),key=check_priority)[:max(0,prefs.get('verification_budget',40)-len(missing))]
     checks = {}
     with ThreadPoolExecutor(max_workers=3) as pool:
         for checked in pool.map(verify_posting, candidates):
@@ -446,10 +464,11 @@ def run(root=ROOT):
         j.pop('observed_this_run', None)
         j['posting_age'] = posting_age(j.get('posted_at'))
     jobs=finalize_decisions(jobs,timestamp)
+    jobs=apply_recency_policy(jobs,prefs,timestamp)
     counts = {state: sum(j.get('availability_state') == state for j in jobs) for state in ['Verified active', 'Unverified', 'Stale', 'Confirmed closed']}
     counts['suspected_duplicate_records'] = sum(bool(j.get('related_ids')) for j in jobs)
     counts['exact_observations_collapsed'] = sum(j.get('exact_duplicates_collapsed', 0) for j in jobs)
-    feed = {"schema_version": 1, "decision_version": 2, "generated_at": timestamp, "source_status": sorted(health, key=lambda x: x["company"]), "jobs": jobs, "availability_summary": counts, "preferences": {k: prefs[k] for k in ['shortlist_limit','shortlist_per_company','stale_after_hours','defense_target','daily_target','priority_queue_limit','verification_budget','daily_capacity','verification_max_hours','sheet_verification_budget','decision_version'] if k in prefs}, "config_hash": hashlib.sha256(json.dumps({'preferences':prefs,'boards':boards},sort_keys=True).encode()).hexdigest()}
+    feed = {"schema_version": 1, "decision_version": 2, "generated_at": timestamp, "source_status": sorted(health, key=lambda x: x["company"]), "jobs": jobs, "availability_summary": counts, "preferences": {k: prefs[k] for k in ['shortlist_limit','shortlist_per_company','stale_after_hours','defense_target','daily_target','priority_queue_limit','verification_budget','daily_capacity','verification_max_hours','sheet_verification_budget','decision_version','max_posting_age_days','reporting_timezone'] if k in prefs}, "config_hash": hashlib.sha256(json.dumps({'preferences':prefs,'boards':boards},sort_keys=True).encode()).hexdigest()}
     output.parent.mkdir(parents=True, exist_ok=True)
     tmp = output.with_suffix(".tmp")
     tmp.write_text(json.dumps(feed, ensure_ascii=False, separators=(",", ":")) + "\n")

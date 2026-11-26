@@ -62,9 +62,20 @@ def deduplicate(previous, observed):
 
 
 def mark_related(jobs):
+    # Exact identity and similarity are separate graphs. Keep one representative
+    # per proven requisition; historical aliases alone do not prove identity.
+    parent={j['id']:j['id'] for j in jobs}
+    def find(k):
+        while parent[k]!=k:
+            parent[k]=parent[parent[k]];k=parent[k]
+        return k
+    def union(a,b):
+        a,b=find(a),find(b)
+        if a!=b:parent[b]=a
     groups = {}
     for j in jobs:
         j['related_ids'] = []
+        j['possible_related_ids'] = []
         j['duplicate_state'] = 'Distinct / no duplicate evidence'
         title = re.sub(r'[^a-z0-9]+', ' ', j['title'].casefold()).strip()
         j['_identity_title'] = re.sub(r'\b(?:new graduate|new grad|20\d{2})\b', '', title).strip()
@@ -85,15 +96,39 @@ def mark_related(jobs):
                 if same_req or shared_hr or (near and a['location'].casefold() == b['location'].casefold()):
                     for one, other in [(a, b), (b, a)]:
                         one['related_ids'].append(other['id'])
-                        one['duplicate_state'] = 'Exact requisition alias; review history' if same_req else 'Possible repost / duplicate; distinct requisitions retained'
+                        if not same_req:one['possible_related_ids'].append(other['id'])
+                    if same_req:union(a['id'],b['id'])
     by_id={j['id']:j for j in jobs}
     for j in jobs:
         for alias in j.get('aliases',[]) if j.get('identity_version')==3 else []:
             other=by_id.get(alias)
             if other and other is not j:
-                j['related_ids']=list(dict.fromkeys(j['related_ids']+[alias]))
-                other['related_ids']=list(dict.fromkeys(other['related_ids']+[j['id']]))
-                j['duplicate_state']=other['duplicate_state']='Exact requisition alias; review history'
+                # Old alias lists can survive title/program changes. Without
+                # corroborating current ATS identifiers retain only a suspicion.
+                for one,two in [(j,other),(other,j)]:
+                    one['related_ids']=list(dict.fromkeys(one['related_ids']+[two['id']]))
+                    if find(one['id'])!=find(two['id']):
+                        one['possible_related_ids']=list(dict.fromkeys(one['possible_related_ids']+[two['id']]))
+    components={}
+    for j in jobs:components.setdefault(find(j['id']),[]).append(j)
+    for component in components.values():
+        representative=min(component,key=lambda j:(j.get('availability_state')=='Confirmed closed',j.get('availability')!='Seen in latest search',j.get('canonical_id')!=j['id'],j.get('first_seen') or '9999',j['id']))
+        canonical=representative['id'];members={j['id'] for j in component}
+        possible=set().union(*(set(j['possible_related_ids']) for j in component))-members
+        related=set().union(*(set(j['related_ids']) for j in component))|members
+        original_dates=[j['posted_at'] for j in component if j.get('posted_at')]
+        if original_dates:representative['posted_at']=min(original_dates)
+        for j in component:
+            j['canonical_id']=canonical
+            j['related_ids']=sorted(related-{j['id']})
+            j['possible_related_ids']=sorted(possible)
+            if j['id']!=canonical:
+                j['duplicate_kind']='alias';j['duplicate_state']='Exact requisition alias; canonical '+canonical
+            elif j['possible_related_ids']:
+                j['duplicate_kind']='possible';j['duplicate_state']='Possible repost / duplicate; distinct requisitions retained'
+            elif len(component)>1:
+                j['duplicate_kind']='canonical';j['duplicate_state']='Canonical requisition; '+str(len(component)-1)+' aliases retained'
+            else:j['duplicate_kind']='distinct'
     for j in jobs:
         j.pop('_identity_title', None)
     return jobs
